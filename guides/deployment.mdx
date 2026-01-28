@@ -143,25 +143,25 @@ volumes:
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: ink-agent
+  name: clarkos-agent
 spec:
   replicas: 1  # Agents are singleton
   selector:
     matchLabels:
-      app: ink-agent
+      app: clarkos-agent
   template:
     metadata:
       labels:
-        app: ink-agent
+        app: clarkos-agent
     spec:
       containers:
         - name: agent
-          image: your-registry/ink-agent:latest
+          image: your-registry/clarkos-agent:latest
           ports:
             - containerPort: 3000
           envFrom:
             - secretRef:
-                name: ink-agent-secrets
+                name: clarkos-agent-secrets
           resources:
             requests:
               memory: "256Mi"
@@ -173,10 +173,10 @@ spec:
 apiVersion: v1
 kind: Service
 metadata:
-  name: ink-agent
+  name: clarkos-agent
 spec:
   selector:
-    app: ink-agent
+    app: clarkos-agent
   ports:
     - port: 80
       targetPort: 3000
@@ -184,7 +184,7 @@ spec:
 apiVersion: v1
 kind: Secret
 metadata:
-  name: ink-agent-secrets
+  name: clarkos-agent-secrets
 type: Opaque
 stringData:
   OPENROUTER_KEY: "sk-or-..."
@@ -263,7 +263,7 @@ const agent = new Agent({
 
     // Include in all logs
     defaultMeta: {
-      service: "ink-agent",
+      service: "clarkos-agent",
       version: process.env.VERSION,
       environment: process.env.NODE_ENV,
     },
@@ -311,7 +311,7 @@ Set up alerts for critical conditions:
 ```yaml
 # alertmanager rules
 groups:
-  - name: ink-agent
+  - name: clarkos-agent
     rules:
       - alert: AgentHealthLow
         expr: ink_agent_health < 25
