@@ -1,33 +1,214 @@
 ---
-title: 'Introduction'
-description: 'Example section for showcasing API endpoints'
+title: "API Reference"
+description: "Complete REST API documentation for INK agents"
 ---
 
-<Note>
-  If you're not looking to build API reference documentation, you can delete
-  this section by removing the api-reference folder.
-</Note>
+Every INK agent exposes a REST API for monitoring, control, and integration.
 
-## Welcome
+## Base URL
 
-There are two ways to build API documentation: [OpenAPI](https://mintlify.com/docs/api-playground/openapi/setup) and [MDX components](https://mintlify.com/docs/api-playground/mdx/configuration). For the starter kit, we are using the following OpenAPI specification.
+```
+# Development
+http://localhost:3001
 
-<Card
-  title="Plant Store Endpoints"
-  icon="leaf"
-  href="https://github.com/mintlify/starter/blob/main/api-reference/openapi.json"
->
-  View the OpenAPI specification file
-</Card>
+# Production (Convex)
+https://your-project.convex.cloud
+```
 
 ## Authentication
 
-All API endpoints are authenticated using Bearer tokens and picked up from the specification file.
+Protected endpoints require a Bearer token:
+
+```bash
+curl -H "Authorization: Bearer YOUR_TOKEN" \
+  https://your-project.convex.cloud/tick
+```
+
+Tokens are configured via environment variables:
+- `TICK_TOKEN` - For tick execution
+- `WRITE_TOKEN` - For write operations
+
+## Response Format
+
+All responses are JSON:
 
 ```json
-"security": [
-  {
-    "bearerAuth": []
-  }
-]
+{
+  "success": true,
+  "data": { ... }
+}
 ```
+
+Or on error:
+
+```json
+{
+  "success": false,
+  "error": "Error message",
+  "code": "ERROR_CODE"
+}
+```
+
+## Rate Limits
+
+Default rate limits:
+- **Read endpoints:** 100 requests/minute
+- **Write endpoints:** 20 requests/minute
+- **Tick endpoint:** 12 requests/minute
+
+## Endpoints Overview
+
+### State & Health
+
+| Method | Path | Description |
+|--------|------|-------------|
+| GET | `/health` | Health check |
+| GET | `/state` | Current agent state |
+| GET | `/logs` | Activity logs |
+
+### Memory
+
+| Method | Path | Description |
+|--------|------|-------------|
+| GET | `/memories` | Query memories |
+| GET | `/memories/core` | Core memories |
+| GET | `/memories/stats` | Memory statistics |
+| POST | `/memories/store` | Store a memory |
+
+### Consciousness
+
+| Method | Path | Description |
+|--------|------|-------------|
+| GET | `/consciousness/thoughts` | Recent thoughts |
+| GET | `/consciousness/brilliant` | Brilliant moments |
+| POST | `/consciousness/process` | Generate thought |
+
+### Control
+
+| Method | Path | Description |
+|--------|------|-------------|
+| POST | `/tick` | Trigger a tick |
+| POST | `/wake` | Wake the agent |
+| POST | `/feed` | Apply a feed event |
+
+### Knowledge
+
+| Method | Path | Description |
+|--------|------|-------------|
+| GET | `/knowledge` | Query knowledge |
+| POST | `/knowledge` | Add knowledge item |
+
+## Quick Examples
+
+### Check Health
+
+```bash
+curl https://your-project.convex.cloud/health
+```
+
+```json
+{
+  "status": "ok",
+  "model": "anthropic/claude-3.5-sonnet",
+  "lastTick": 1706400000000,
+  "uptime": 86400
+}
+```
+
+### Get Current State
+
+```bash
+curl https://your-project.convex.cloud/state
+```
+
+```json
+{
+  "mood": "contemplative",
+  "health": 78,
+  "routine": "day",
+  "volatility": 0.32,
+  "summary": "Analyzing market trends...",
+  "updatedAt": 1706400000000
+}
+```
+
+### Trigger a Tick
+
+```bash
+curl -X POST https://your-project.convex.cloud/tick \
+  -H "Authorization: Bearer YOUR_TICK_TOKEN"
+```
+
+```json
+{
+  "success": true,
+  "mood": "expressive",
+  "health": 80,
+  "summary": "Interesting developments in the market...",
+  "duration": 2340
+}
+```
+
+### Query Memories
+
+```bash
+curl "https://your-project.convex.cloud/memories?type=episodic&limit=10"
+```
+
+```json
+{
+  "memories": [
+    {
+      "_id": "abc123",
+      "type": "episodic",
+      "content": "Observed unusual trading volume in ETH",
+      "importance": 0.75,
+      "createdAt": 1706400000000
+    }
+  ],
+  "total": 1523
+}
+```
+
+## WebSocket Subscriptions
+
+For real-time updates, use Convex's subscription system:
+
+```typescript
+import { useQuery } from "convex/react";
+import { api } from "./convex/_generated/api";
+
+// React component
+function AgentStatus() {
+  // Auto-updates when state changes
+  const state = useQuery(api.state.get);
+
+  return (
+    <div>
+      <p>Mood: {state?.mood}</p>
+      <p>Health: {state?.health}</p>
+    </div>
+  );
+}
+```
+
+## Error Codes
+
+| Code | Description |
+|------|-------------|
+| `UNAUTHORIZED` | Invalid or missing token |
+| `RATE_LIMITED` | Too many requests |
+| `NOT_FOUND` | Resource not found |
+| `VALIDATION_ERROR` | Invalid parameters |
+| `INTERNAL_ERROR` | Server error |
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="State API" icon="circle-info" href="/api-reference/state">
+    State and logs endpoints.
+  </Card>
+  <Card title="Memory API" icon="brain" href="/api-reference/memories">
+    Memory system endpoints.
+  </Card>
+</CardGroup>

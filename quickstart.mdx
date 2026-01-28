@@ -1,80 +1,193 @@
 ---
 title: "Quickstart"
-description: "Start building awesome documentation in minutes"
+description: "Deploy your first INK agent in under 5 minutes"
 ---
 
-## Get started in three steps
+## Prerequisites
 
-Get your documentation site running locally and make your first customization.
+Before you begin, make sure you have:
 
-### Step 1: Set up your local environment
+- **Node.js 18+** installed
+- **npm** or **pnpm** package manager
+- An **OpenRouter API key** (or compatible LLM provider)
 
-<AccordionGroup>
-  <Accordion icon="copy" title="Clone your docs locally">
-    During the onboarding process, you created a GitHub repository with your docs content if you didn't already have one. You can find a link to this repository in your [dashboard](https://dashboard.mintlify.com).
-    
-    To clone the repository locally so that you can make and preview changes to your docs, follow the [Cloning a repository](https://docs.github.com/en/repositories/creating-and-managing-repositories/cloning-a-repository) guide in the GitHub docs.
-  </Accordion>
-  <Accordion icon="rectangle-terminal" title="Start the preview server">
-    1. Install the Mintlify CLI: `npm i -g mint`
-    2. Navigate to your docs directory and run: `mint dev`
-    3. Open `http://localhost:3000` to see your docs live!
-    
-    <Tip>Your preview updates automatically as you edit files.</Tip>
-  </Accordion>
-</AccordionGroup>
+<Tip>
+  Don't have an OpenRouter key? [Get one free](https://openrouter.ai) with $5 in credits.
+</Tip>
 
-### Step 2: Deploy your changes
+## Create Your Agent
 
-<AccordionGroup>
-  <Accordion icon="github" title="Install our GitHub app">
-    Install the Mintlify GitHub app from your [dashboard](https://dashboard.mintlify.com/settings/organization/github-app).
-    
-    Our GitHub app automatically deploys your changes to your docs site, so you don't need to manage deployments yourself.
-</Accordion>
-<Accordion icon="palette" title="Update your site name and colors">
-    For a first change, let's update the name and colors of your docs site.
+<Steps>
+  <Step title="Initialize the project">
+    Run our CLI to scaffold a new agent project:
 
-    1. Open `docs.json` in your editor.
-    2. Change the `"name"` field to your project name.
-    3. Update the `"colors"` to match your brand.
-    4. Save and see your changes instantly at `http://localhost:3000`.
+    ```bash
+    npx create-ink-agent my-first-agent
+    ```
 
-    <Tip>Try changing the primary color to see an immediate difference!</Tip>
-  </Accordion>
-</AccordionGroup>
+    This creates a fully-configured project with:
+    - Convex backend setup
+    - TypeScript configuration
+    - Example plugins
+    - Development scripts
+  </Step>
 
-### Step 3: Go live
+  <Step title="Configure your environment">
+    Navigate to your project and set up your environment:
 
-<Accordion icon="rocket" title="Publish your docs">
-  1. Commit and push your changes.
-  2. Your docs will update and be live in moments!
-</Accordion>
+    ```bash
+    cd my-first-agent
+    cp .env.example .env.local
+    ```
 
-## Next steps
+    Edit `.env.local` with your API keys:
 
-Now that you have your docs running, explore these key features:
+    ```bash
+    OPENROUTER_KEY=your-openrouter-key
+    GEMINI_API_KEY=your-gemini-key  # For embeddings
+    ```
+  </Step>
+
+  <Step title="Start the development server">
+    Launch your agent locally:
+
+    ```bash
+    npm run dev
+    ```
+
+    Your agent is now running at `http://localhost:3000` with:
+    - Real-time state updates
+    - Automatic tick execution
+    - Memory persistence
+    - HTTP API endpoints
+  </Step>
+</Steps>
+
+## Your First Tick
+
+The **tick** is the heartbeat of your agent. Every tick, your agent:
+
+1. Loads its current state and memories
+2. Gathers context (news, knowledge, recent activity)
+3. Processes through the LLM
+4. Updates state and creates new memories
+5. Optionally generates artifacts (tweets, images, etc.)
+
+Trigger a manual tick:
+
+```bash
+curl -X POST http://localhost:3001/tick \
+  -H "Authorization: Bearer your-tick-token"
+```
+
+Or watch it tick automatically based on your configured interval.
+
+## Explore the API
+
+Your agent exposes several HTTP endpoints:
 
 <CardGroup cols={2}>
+  <Card title="GET /state" icon="circle-info">
+    Current agent state (mood, health, routine)
+  </Card>
+  <Card title="GET /memories" icon="brain">
+    Query stored memories with filters
+  </Card>
+  <Card title="POST /tick" icon="play">
+    Manually trigger an agent tick
+  </Card>
+  <Card title="GET /consciousness/thoughts" icon="lightbulb">
+    Recent synthesized thoughts
+  </Card>
+</CardGroup>
 
-<Card title="Write Content" icon="pen-to-square" href="/essentials/markdown">
-  Learn MDX syntax and start writing your documentation.
-</Card>
+## Add a Plugin
 
-<Card title="Customize style" icon="palette" href="/essentials/settings">
-  Make your docs match your brand perfectly.
-</Card>
+Extend your agent with a plugin:
 
-<Card title="Add code examples" icon="square-code" href="/essentials/code">
-  Include syntax-highlighted code blocks.
-</Card>
+```typescript
+// plugins/twitter.ts
+import { Plugin } from "@convex-agent/core";
 
-<Card title="API documentation" icon="code" href="/api-reference/introduction">
-  Auto-generate API docs from OpenAPI specs.
-</Card>
+export const twitterPlugin: Plugin = {
+  name: "twitter",
+  version: "1.0.0",
 
+  async onTick(context) {
+    // Check if agent should tweet
+    if (context.state.mood === "expressive") {
+      const thought = context.getRecentThought();
+      await this.postTweet(thought.content);
+    }
+  }
+};
+```
+
+Register it in your agent:
+
+```typescript
+// convex/agent.ts
+import { Agent } from "@convex-agent/core";
+import { twitterPlugin } from "./plugins/twitter";
+
+const agent = new Agent({
+  name: "my-agent",
+  plugins: [twitterPlugin]
+});
+```
+
+## Deploy to Production
+
+When you're ready to go live:
+
+<Steps>
+  <Step title="Deploy Convex backend">
+    ```bash
+    npx convex deploy
+    ```
+  </Step>
+
+  <Step title="Deploy frontend (optional)">
+    Deploy to Vercel, Netlify, or any static host:
+
+    ```bash
+    npm run build
+    vercel deploy
+    ```
+  </Step>
+
+  <Step title="Set up scheduled ticks">
+    Configure a cron job or use Convex's built-in scheduler:
+
+    ```typescript
+    // convex/crons.ts
+    import { cronJobs } from "convex/server";
+
+    const crons = cronJobs();
+    crons.interval("agent tick", { minutes: 5 }, "tick:run");
+
+    export default crons;
+    ```
+  </Step>
+</Steps>
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="Understand Agents" icon="robot" href="/concepts/agents">
+    Learn the core agent architecture.
+  </Card>
+  <Card title="Master Memory" icon="brain" href="/concepts/memory">
+    Deep dive into the memory system.
+  </Card>
+  <Card title="Build Plugins" icon="plug" href="/guides/custom-plugins">
+    Create custom agent capabilities.
+  </Card>
+  <Card title="Explore Examples" icon="code" href="/examples/basic-agent">
+    See complete agent implementations.
+  </Card>
 </CardGroup>
 
 <Note>
-  **Need help?** See our [full documentation](https://mintlify.com/docs) or join our [community](https://mintlify.com/community).
+  **Need help?** Join our [Discord community](https://discord.gg/ink) or open an issue on [GitHub](https://github.com/cloutprotocol/ink).
 </Note>

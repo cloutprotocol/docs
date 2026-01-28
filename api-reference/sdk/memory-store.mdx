@@ -1,0 +1,382 @@
+---
+title: "Memory Store SDK"
+description: "SDK reference for the memory system"
+---
+
+The memory store provides the interface for storing, retrieving, and managing agent memories.
+
+## MemoryStore Class
+
+### Getting the Store
+
+```typescript
+// From agent instance
+const memory = agent.memory;
+
+// Or create standalone
+import { createMemoryStore } from "@convex-agent/core";
+
+const memory = createMemoryStore({
+  convexUrl: process.env.CONVEX_URL!,
+  embeddingModel: "gemini",
+});
+```
+
+## Storing Memories
+
+### Basic Store
+
+```typescript
+const memoryId = await memory.store({
+  type: "episodic",
+  content: "Met Alice at the conference",
+  importance: 0.7,
+});
+```
+
+### Full Options
+
+```typescript
+const memoryId = await memory.store({
+  // Required
+  type: "episodic",
+  content: "Met Alice at the conference",
+
+  // Scoring (optional, auto-calculated if not provided)
+  importance: 0.7,
+  salience: 0.6,
+  confidence: 0.9,
+
+  // Metadata
+  metadata: {
+    context: "networking event",
+    mood: "expressive",
+    routine: "evening",
+    trigger: "conversation",
+    entities: ["Alice", "conference", "crypto"],
+    source: "direct interaction",
+  },
+
+  // Linking
+  causedBy: "previous_memory_id",
+});
+```
+
+### Store with Deduplication
+
+```typescript
+const result = await memory.storeWithDedup({
+  type: "semantic",
+  content: "Ethereum uses proof-of-stake",
+  importance: 0.6,
+});
+
+if (result.deduplicated) {
+  console.log("Similar memory exists:", result.existingId);
+  console.log("Similarity:", result.similarity);
+} else {
+  console.log("New memory created:", result.memoryId);
+}
+```
+
+## Retrieving Memories
+
+### Semantic Search
+
+```typescript
+const memories = await memory.recall("market trends", {
+  limit: 10,
+  threshold: 0.6,
+});
+```
+
+### Filtered Search
+
+```typescript
+const memories = await memory.recall("ethereum", {
+  limit: 20,
+  threshold: 0.5,
+
+  // Filter by type
+  type: ["semantic", "episodic"],
+
+  // Filter by importance
+  minImportance: 0.5,
+
+  // Filter by time
+  since: Date.now() - 7 * 24 * 60 * 60 * 1000,  // Last 7 days
+
+  // Filter by metadata
+  metadata: {
+    source: ["news", "research"],
+  },
+
+  // Scoring weights
+  weights: {
+    similarity: 0.6,
+    importance: 0.2,
+    recency: 0.2,
+  },
+});
+```
+
+### Get by ID
+
+```typescript
+const memory = await memory.get(memoryId);
+```
+
+### Get with Links
+
+```typescript
+const result = await memory.getWithLinks(memoryId);
+
+console.log(result.memory);      // The memory
+console.log(result.links);       // Outgoing links
+console.log(result.backlinks);   // Incoming links
+```
+
+### List by Type
+
+```typescript
+const episodic = await memory.listByType("episodic", {
+  limit: 100,
+  minImportance: 0.3,
+});
+```
+
+## Memory Linking
+
+### Detect Links
+
+```typescript
+const links = await memory.detectLinks(memoryId);
+
+// Returns detected relationships
+for (const link of links) {
+  console.log(`${link.type} -> ${link.targetId} (${link.strength})`);
+}
+```
+
+### Manual Linking
+
+```typescript
+await memory.link({
+  sourceId: memory1Id,
+  targetId: memory2Id,
+  type: "caused_by",
+  strength: 0.85,
+  confidence: 0.9,
+});
+```
+
+### Link Types
+
+```typescript
+type LinkType =
+  | "caused_by"       // Causal relationship
+  | "related_to"      // General association
+  | "contradicts"     // Conflicting information
+  | "elaborates"      // Adds detail
+  | "supersedes"      // Replaces old info
+  | "temporal_before" // Happened before
+  | "temporal_after"; // Happened after
+```
+
+### Get Causal Chain
+
+```typescript
+const chain = await memory.getCausalChain(memoryId);
+
+// Returns ordered sequence of memories
+for (const mem of chain) {
+  console.log(mem.content);
+}
+```
+
+## Consolidation
+
+### Trigger Consolidation
+
+```typescript
+const result = await memory.consolidate();
+
+console.log("Processed:", result.memoriesProcessed);
+console.log("Clusters:", result.clustersFound);
+console.log("Core memories created:", result.coreMemoriesCreated);
+console.log("Decayed:", result.memoriesDecayed);
+```
+
+### Get Clusters
+
+```typescript
+const clusters = await memory.getClusters({
+  minSize: 3,
+  threshold: 0.7,
+});
+
+for (const cluster of clusters) {
+  console.log(`Theme: ${cluster.theme}`);
+  console.log(`Memories: ${cluster.memories.length}`);
+}
+```
+
+### Get Core Memories
+
+```typescript
+const coreMemories = await memory.getCoreMemories({
+  limit: 50,
+  minConfidence: 0.7,
+});
+```
+
+## Reflection
+
+### Generate Reflection
+
+```typescript
+const reflection = await memory.reflect({
+  type: "behavioral",      // emotional, knowledge, behavioral, growth
+  focus: "market analysis patterns",
+  lookback: "7d",
+});
+
+console.log(reflection.content);
+console.log(reflection.basedOn);  // Memory IDs that informed this
+```
+
+## Embeddings
+
+### Generate Embedding
+
+```typescript
+const embedding = await memory.embed("text to embed");
+```
+
+### Batch Embeddings
+
+```typescript
+const embeddings = await memory.batchEmbed([
+  "text 1",
+  "text 2",
+  "text 3",
+], {
+  batchSize: 10,
+  parallelism: 3,
+});
+```
+
+### Similarity
+
+```typescript
+const similarity = memory.cosineSimilarity(embedding1, embedding2);
+```
+
+## Statistics
+
+```typescript
+const stats = await memory.getStats();
+
+console.log("Total memories:", stats.total);
+console.log("By type:", stats.byType);
+console.log("Avg importance:", stats.avgImportance);
+console.log("Core memories:", stats.coreMemories);
+console.log("Links:", stats.linkCount);
+```
+
+## Maintenance
+
+### Prune Old Memories
+
+```typescript
+// Preview
+const preview = await memory.prune({
+  olderThan: 30 * 24 * 60 * 60 * 1000,  // 30 days
+  maxImportance: 0.3,
+  excludeTypes: ["reflection", "procedural"],
+  dryRun: true,
+});
+
+console.log(`Would prune ${preview.count} memories`);
+
+// Actually prune
+await memory.prune({
+  ...options,
+  dryRun: false,
+});
+```
+
+### Update Memory
+
+```typescript
+await memory.update(memoryId, {
+  importance: 0.9,
+  metadata: {
+    ...existingMetadata,
+    newField: "value",
+  },
+});
+```
+
+### Delete Memory
+
+```typescript
+await memory.delete(memoryId);
+```
+
+## Types
+
+### Memory
+
+```typescript
+interface Memory {
+  _id: string;
+  type: MemoryType;
+  content: string;
+  embedding: number[];
+  importance: number;
+  salience: number;
+  confidence: number;
+  sentiment: {
+    score: number;
+    label: "positive" | "negative" | "neutral";
+  };
+  metadata: MemoryMetadata;
+  unique: boolean;
+  version: number;
+  createdAt: number;
+  lastAccessedAt: number;
+}
+
+type MemoryType =
+  | "episodic"
+  | "semantic"
+  | "emotional"
+  | "procedural"
+  | "reflection";
+```
+
+### MemoryMetadata
+
+```typescript
+interface MemoryMetadata {
+  context?: string;
+  mood?: string;
+  routine?: string;
+  trigger?: string;
+  entities?: string[];
+  source?: string;
+  [key: string]: any;
+}
+```
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="Agent SDK" icon="robot" href="/api-reference/sdk/agent">
+    Main agent class reference.
+  </Card>
+  <Card title="Memory Guide" icon="book" href="/guides/memory-management">
+    Best practices for memory management.
+  </Card>
+</CardGroup>

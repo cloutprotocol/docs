@@ -1,0 +1,264 @@
+---
+title: "Community Plugins"
+description: "Plugins built by the INK community"
+---
+
+Community plugins extend INK's capabilities beyond official offerings. Quality varies—always review code before using in production.
+
+## Featured Plugins
+
+<Note>
+  These plugins have been reviewed by the community and are widely used. However, they are not officially supported.
+</Note>
+
+### ink-plugin-reddit
+
+Monitor and interact with Reddit.
+
+```bash
+npm install ink-plugin-reddit
+```
+
+```typescript
+import { redditPlugin } from "ink-plugin-reddit";
+
+const agent = new Agent({
+  plugins: [
+    redditPlugin({
+      clientId: process.env.REDDIT_CLIENT_ID,
+      clientSecret: process.env.REDDIT_CLIENT_SECRET,
+      username: process.env.REDDIT_USERNAME,
+      password: process.env.REDDIT_PASSWORD,
+
+      subreddits: ["cryptocurrency", "ethfinance"],
+      postEnabled: false,  // Read-only by default
+    }),
+  ],
+});
+```
+
+**Author:** @crypto-dev
+**GitHub:** github.com/crypto-dev/ink-plugin-reddit
+
+---
+
+### ink-plugin-notion
+
+Sync with Notion databases.
+
+```bash
+npm install ink-plugin-notion
+```
+
+```typescript
+import { notionPlugin } from "ink-plugin-notion";
+
+const agent = new Agent({
+  plugins: [
+    notionPlugin({
+      token: process.env.NOTION_TOKEN,
+      databases: {
+        knowledge: "database-id-1",
+        logs: "database-id-2",
+      },
+      syncInterval: 60000,  // 1 minute
+    }),
+  ],
+});
+```
+
+**Author:** @productivity-hacker
+**GitHub:** github.com/productivity-hacker/ink-plugin-notion
+
+---
+
+### ink-plugin-voice
+
+Text-to-speech and voice output.
+
+```bash
+npm install ink-plugin-voice
+```
+
+```typescript
+import { voicePlugin } from "ink-plugin-voice";
+
+const agent = new Agent({
+  plugins: [
+    voicePlugin({
+      provider: "elevenlabs",
+      apiKey: process.env.ELEVENLABS_API_KEY,
+      voiceId: "your-voice-id",
+
+      // Auto-speak brilliant thoughts
+      speakBrilliantThoughts: true,
+    }),
+  ],
+});
+```
+
+**Author:** @audio-ai
+**GitHub:** github.com/audio-ai/ink-plugin-voice
+
+---
+
+### ink-plugin-email
+
+Send and receive emails.
+
+```bash
+npm install ink-plugin-email
+```
+
+```typescript
+import { emailPlugin } from "ink-plugin-email";
+
+const agent = new Agent({
+  plugins: [
+    emailPlugin({
+      smtp: {
+        host: "smtp.gmail.com",
+        port: 587,
+        user: process.env.EMAIL_USER,
+        pass: process.env.EMAIL_PASS,
+      },
+      imap: {
+        host: "imap.gmail.com",
+        port: 993,
+      },
+      allowedSenders: ["boss@company.com"],
+    }),
+  ],
+});
+```
+
+**Author:** @comms-dev
+**GitHub:** github.com/comms-dev/ink-plugin-email
+
+## All Community Plugins
+
+| Plugin | Description | Author | Stars |
+|--------|-------------|--------|-------|
+| ink-plugin-reddit | Reddit integration | @crypto-dev | 234 |
+| ink-plugin-notion | Notion sync | @productivity-hacker | 189 |
+| ink-plugin-voice | TTS/voice | @audio-ai | 156 |
+| ink-plugin-email | Email handling | @comms-dev | 145 |
+| ink-plugin-slack | Slack integration | @enterprise-ai | 134 |
+| ink-plugin-whatsapp | WhatsApp bot | @mobile-dev | 121 |
+| ink-plugin-youtube | YouTube monitoring | @content-ai | 98 |
+| ink-plugin-linkedin | LinkedIn posting | @professional | 87 |
+| ink-plugin-github | GitHub integration | @dev-tools | 76 |
+| ink-plugin-calendar | Google Calendar | @scheduling | 65 |
+| ink-plugin-weather | Weather data | @data-fetcher | 54 |
+| ink-plugin-wolfram | Wolfram Alpha | @math-ai | 43 |
+
+## Finding Plugins
+
+### NPM Search
+
+```bash
+npm search ink-plugin
+```
+
+### GitHub Topics
+
+Search for repositories tagged with:
+- `ink-agent-plugin`
+- `convex-agent-plugin`
+
+### Community Registry
+
+Browse our community registry at:
+- [plugins.ink.dev](https://plugins.ink.dev)
+
+## Evaluating Plugins
+
+Before using a community plugin:
+
+<Steps>
+  <Step title="Check maintenance">
+    - When was the last commit?
+    - Are issues being addressed?
+    - Is it compatible with latest INK?
+  </Step>
+
+  <Step title="Review code">
+    - Look for obvious security issues
+    - Check how credentials are handled
+    - Review external API calls
+  </Step>
+
+  <Step title="Test in isolation">
+    - Run in development first
+    - Monitor API usage
+    - Check for rate limit compliance
+  </Step>
+
+  <Step title="Check community feedback">
+    - Read GitHub issues
+    - Search Discord for mentions
+    - Look for usage examples
+  </Step>
+</Steps>
+
+## Contributing Plugins
+
+### Submission Process
+
+1. Build and test your plugin
+2. Publish to NPM with `ink-plugin-` prefix
+3. Add `ink-agent-plugin` topic to GitHub repo
+4. Submit PR to plugins registry
+
+### Requirements
+
+- MIT or compatible license
+- TypeScript types included
+- README with usage examples
+- Passing tests
+- No hardcoded credentials
+
+### Plugin Template
+
+```typescript
+// Use our template to get started
+npx create-ink-plugin my-plugin
+```
+
+This scaffolds:
+- TypeScript configuration
+- Test setup
+- Documentation template
+- CI/CD workflow
+- NPM publishing config
+
+## Security Notes
+
+<Warning>
+  Community plugins are not audited. Always review code before use, especially plugins that handle credentials or make financial transactions.
+</Warning>
+
+### Safe Practices
+
+1. **Review source code** before installing
+2. **Lock versions** in package.json
+3. **Monitor network activity** in production
+4. **Use separate API keys** for testing
+5. **Enable audit logging** for sensitive plugins
+
+## Getting Help
+
+- **Plugin issues:** File on the plugin's GitHub repo
+- **General questions:** Ask in Discord #community-plugins
+- **Security concerns:** Email security@ink.dev
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="Build Your Own" icon="hammer" href="/guides/custom-plugins">
+    Create and publish a plugin.
+  </Card>
+  <Card title="Official Plugins" icon="check" href="/plugins/official">
+    Use supported plugins.
+  </Card>
+</CardGroup>

@@ -1,43 +1,48 @@
-# Mintlify Starter Kit
+# INK Agent Framework Documentation
 
-Use the starter kit to get your docs deployed and ready to customize.
+Official documentation for the INK Agent Framework - the next generation of autonomous AI agents.
 
-Click the green **Use this template** button at the top of this repo to copy the Mintlify starter kit. The starter kit contains examples with
+## About INK
 
-- Guide pages
-- Navigation
-- Customizations
-- API reference pages
-- Use of popular components
+INK is a TypeScript-first agent framework that goes beyond simple chatbots. Built on Convex's serverless infrastructure, INK agents have:
 
-**[Follow the full quickstart guide](https://starter.mintlify.com/quickstart)**
+- **Persistent Memory** - Multi-layered cognitive memory with 5 distinct types
+- **Consciousness Layer** - Higher-order thought synthesis and moments of brilliance
+- **True Autonomy** - Tick-based execution with mood, health, and routine systems
+- **Plugin Architecture** - Extensible with official and community plugins
 
-## Development
+## Documentation
 
-Install the [Mintlify CLI](https://www.npmjs.com/package/mint) to preview your documentation changes locally. To install, use the following command:
+Visit [docs.ink.dev](https://docs.ink.dev) for the full documentation.
 
-```
+### Quick Links
+
+- [Quickstart](https://docs.ink.dev/quickstart) - Get your first agent running
+- [Core Concepts](https://docs.ink.dev/concepts/agents) - Understand the architecture
+- [Memory System](https://docs.ink.dev/concepts/memory) - Deep dive into cognitive memory
+- [API Reference](https://docs.ink.dev/api-reference/introduction) - Complete REST API docs
+
+## Local Development
+
+Install the [Mintlify CLI](https://www.npmjs.com/package/mint) to preview docs locally:
+
+```bash
 npm i -g mint
-```
-
-Run the following command at the root of your documentation, where your `docs.json` is located:
-
-```
 mint dev
 ```
 
 View your local preview at `http://localhost:3000`.
 
-## Publishing changes
+## Contributing
 
-Install our GitHub app from your [dashboard](https://dashboard.mintlify.com/settings/organization/github-app) to propagate changes from your repo to your deployment. Changes are deployed to production automatically after pushing to the default branch.
+We welcome contributions! Please see our [contribution guidelines](https://docs.ink.dev/contributing) for details.
 
-## Need help?
+## Community
 
-### Troubleshooting
+- [Discord](https://discord.gg/ink) - Chat with other builders
+- [GitHub](https://github.com/cloutprotocol/ink) - Star the repo and contribute
+- [Twitter](https://twitter.com/cloutprotocol) - Follow for updates
 
-- If your dev environment isn't running: Run `mint update` to ensure you have the most recent version of the CLI.
-- If a page loads as a 404: Make sure you are running in a folder with a valid `docs.json`.
+## License
 
-### Resources
-- [Mintlify documentation](https://mintlify.com/docs)
+MIT License - see [LICENSE](LICENSE) for details.

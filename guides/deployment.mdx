@@ -1,0 +1,468 @@
+---
+title: "Deployment"
+description: "Deploy your INK agent to production"
+---
+
+This guide covers deploying INK agents to production environments.
+
+## Deployment Options
+
+<CardGroup cols={3}>
+  <Card title="Convex Cloud" icon="cloud">
+    Recommended. Zero-ops serverless deployment.
+  </Card>
+  <Card title="Self-Hosted" icon="server">
+    Full control with Docker/Kubernetes.
+  </Card>
+  <Card title="Hybrid" icon="arrows-split-up-and-left">
+    Backend on Convex, frontend anywhere.
+  </Card>
+</CardGroup>
+
+## Convex Cloud Deployment
+
+The easiest path to production.
+
+### Prerequisites
+
+- Convex account (free tier available)
+- GitHub repository
+- Environment variables ready
+
+### Step 1: Deploy Backend
+
+```bash
+# Deploy Convex functions
+npx convex deploy
+
+# You'll get a production URL like:
+# https://your-project.convex.cloud
+```
+
+### Step 2: Configure Environment
+
+In the Convex dashboard, set production environment variables:
+
+```
+OPENROUTER_KEY=sk-or-...
+GEMINI_API_KEY=AIza...
+TICK_TOKEN=your-secure-token
+WRITE_TOKEN=your-secure-token
+```
+
+### Step 3: Deploy Frontend
+
+For Next.js on Vercel:
+
+```bash
+# Install Vercel CLI
+npm i -g vercel
+
+# Deploy
+vercel
+
+# Set environment variable
+vercel env add NEXT_PUBLIC_CONVEX_URL
+# Enter your Convex production URL
+```
+
+### Step 4: Enable Crons
+
+Crons are automatically deployed with `npx convex deploy`. Verify in the Convex dashboard under "Schedules".
+
+## Self-Hosted Deployment
+
+For full infrastructure control.
+
+### Docker Setup
+
+Create `Dockerfile`:
+
+```dockerfile
+FROM node:18-alpine AS builder
+
+WORKDIR /app
+
+# Install dependencies
+COPY package*.json ./
+RUN npm ci
+
+# Build
+COPY . .
+RUN npm run build
+
+# Production image
+FROM node:18-alpine AS runner
+
+WORKDIR /app
+
+ENV NODE_ENV=production
+
+# Copy built assets
+COPY --from=builder /app/.next/standalone ./
+COPY --from=builder /app/.next/static ./.next/static
+COPY --from=builder /app/public ./public
+
+EXPOSE 3000
+
+CMD ["node", "server.js"]
+```
+
+Create `docker-compose.yml`:
+
+```yaml
+version: '3.8'
+
+services:
+  agent:
+    build: .
+    ports:
+      - "3000:3000"
+    environment:
+      - NEXT_PUBLIC_CONVEX_URL=${CONVEX_URL}
+      - OPENROUTER_KEY=${OPENROUTER_KEY}
+      - GEMINI_API_KEY=${GEMINI_API_KEY}
+    restart: unless-stopped
+
+  # Optional: If self-hosting Convex backend
+  convex:
+    image: convex/convex-local-backend
+    ports:
+      - "3001:3001"
+    volumes:
+      - convex-data:/data
+
+volumes:
+  convex-data:
+```
+
+### Kubernetes Deployment
+
+```yaml
+# deployment.yaml
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: ink-agent
+spec:
+  replicas: 1  # Agents are singleton
+  selector:
+    matchLabels:
+      app: ink-agent
+  template:
+    metadata:
+      labels:
+        app: ink-agent
+    spec:
+      containers:
+        - name: agent
+          image: your-registry/ink-agent:latest
+          ports:
+            - containerPort: 3000
+          envFrom:
+            - secretRef:
+                name: ink-agent-secrets
+          resources:
+            requests:
+              memory: "256Mi"
+              cpu: "100m"
+            limits:
+              memory: "512Mi"
+              cpu: "500m"
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: ink-agent
+spec:
+  selector:
+    app: ink-agent
+  ports:
+    - port: 80
+      targetPort: 3000
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: ink-agent-secrets
+type: Opaque
+stringData:
+  OPENROUTER_KEY: "sk-or-..."
+  GEMINI_API_KEY: "AIza..."
+  TICK_TOKEN: "..."
+```
+
+## Environment Configuration
+
+### Required Variables
+
+| Variable | Description | Example |
+|----------|-------------|---------|
+| `NEXT_PUBLIC_CONVEX_URL` | Convex deployment URL | `https://xxx.convex.cloud` |
+| `OPENROUTER_KEY` | LLM API key | `sk-or-...` |
+| `TICK_TOKEN` | Auth for tick endpoint | Random 32+ chars |
+
+### Optional Variables
+
+| Variable | Description | Default |
+|----------|-------------|---------|
+| `GEMINI_API_KEY` | For embeddings | Uses OpenRouter |
+| `WRITE_TOKEN` | Auth for write ops | Same as TICK_TOKEN |
+| `MODEL_ID` | LLM model | `claude-3.5-sonnet` |
+| `TICK_INTERVAL` | Tick interval (ms) | `300000` |
+
+### Secure Token Generation
+
+```bash
+# Generate secure tokens
+openssl rand -hex 32
+
+# Or using Node.js
+node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"
+```
+
+## Monitoring & Observability
+
+### Health Checks
+
+```typescript
+// convex/http.ts
+import { httpRouter } from "convex/server";
+
+const http = httpRouter();
+
+http.route({
+  path: "/health",
+  method: "GET",
+  handler: async (ctx) => {
+    const state = await ctx.runQuery(api.state.get);
+    const lastTick = await ctx.runQuery(api.logs.lastTick);
+
+    return new Response(JSON.stringify({
+      status: "healthy",
+      agent: state?.mood || "unknown",
+      health: state?.health || 0,
+      lastTick: lastTick?.timestamp,
+      uptime: process.uptime(),
+    }), {
+      headers: { "Content-Type": "application/json" },
+    });
+  },
+});
+```
+
+### Logging
+
+```typescript
+// Configure structured logging
+const agent = new Agent({
+  logging: {
+    level: process.env.LOG_LEVEL || "info",
+    format: "json",
+    destination: "stdout",
+
+    // Include in all logs
+    defaultMeta: {
+      service: "ink-agent",
+      version: process.env.VERSION,
+      environment: process.env.NODE_ENV,
+    },
+  },
+});
+```
+
+### Metrics
+
+Export metrics for Prometheus/Grafana:
+
+```typescript
+// convex/metrics.ts
+export const getMetrics = query({
+  handler: async (ctx) => {
+    const stats = await ctx.runQuery(api.stats.get);
+
+    return `
+# HELP ink_agent_health Current agent health
+# TYPE ink_agent_health gauge
+ink_agent_health ${stats.health}
+
+# HELP ink_agent_ticks_total Total ticks executed
+# TYPE ink_agent_ticks_total counter
+ink_agent_ticks_total ${stats.totalTicks}
+
+# HELP ink_agent_memories_total Total memories stored
+# TYPE ink_agent_memories_total gauge
+ink_agent_memories_total ${stats.totalMemories}
+
+# HELP ink_agent_tick_duration_seconds Tick execution duration
+# TYPE ink_agent_tick_duration_seconds histogram
+ink_agent_tick_duration_seconds_bucket{le="1"} ${stats.tickDurationBuckets[1]}
+ink_agent_tick_duration_seconds_bucket{le="5"} ${stats.tickDurationBuckets[5]}
+ink_agent_tick_duration_seconds_bucket{le="10"} ${stats.tickDurationBuckets[10]}
+    `.trim();
+  },
+});
+```
+
+### Alerting
+
+Set up alerts for critical conditions:
+
+```yaml
+# alertmanager rules
+groups:
+  - name: ink-agent
+    rules:
+      - alert: AgentHealthLow
+        expr: ink_agent_health < 25
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Agent health is low"
+
+      - alert: AgentUnresponsive
+        expr: time() - ink_agent_last_tick > 900
+        for: 5m
+        labels:
+          severity: critical
+        annotations:
+          summary: "Agent hasn't ticked in 15 minutes"
+
+      - alert: TickFailures
+        expr: rate(ink_agent_tick_failures_total[5m]) > 0.1
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "High tick failure rate"
+```
+
+## Security Best Practices
+
+### API Authentication
+
+```typescript
+// Secure your endpoints
+http.route({
+  path: "/tick",
+  method: "POST",
+  handler: async (ctx, request) => {
+    const auth = request.headers.get("Authorization");
+    const token = auth?.replace("Bearer ", "");
+
+    if (token !== process.env.TICK_TOKEN) {
+      return new Response("Unauthorized", { status: 401 });
+    }
+
+    // Execute tick...
+  },
+});
+```
+
+### Rate Limiting
+
+```typescript
+// Simple rate limiting
+const rateLimiter = new Map<string, number[]>();
+
+function checkRateLimit(ip: string, limit: number, window: number): boolean {
+  const now = Date.now();
+  const requests = rateLimiter.get(ip) || [];
+
+  // Remove old requests
+  const recent = requests.filter(t => now - t < window);
+
+  if (recent.length >= limit) {
+    return false;
+  }
+
+  recent.push(now);
+  rateLimiter.set(ip, recent);
+  return true;
+}
+```
+
+### CORS Configuration
+
+```typescript
+const corsHeaders = {
+  "Access-Control-Allow-Origin": process.env.ALLOWED_ORIGINS || "*",
+  "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
+  "Access-Control-Allow-Headers": "Content-Type, Authorization",
+};
+```
+
+## Scaling Considerations
+
+### Single Agent Deployment
+
+INK agents are typically singletons (one instance per agent identity). The Convex backend handles scaling automatically.
+
+### Multi-Agent Deployment
+
+For multiple agents:
+
+```typescript
+// Register multiple agents with unique names
+const agents = [
+  new Agent({ name: "sage", tickInterval: 300000 }),
+  new Agent({ name: "trader", tickInterval: 60000 }),
+  new Agent({ name: "artist", tickInterval: 600000 }),
+];
+
+// Each gets its own state table
+// sage_state, trader_state, artist_state
+```
+
+### Cost Optimization
+
+- Use embedding cache to reduce API calls
+- Set appropriate tick intervals (don't over-tick)
+- Prune old, low-importance memories
+- Use smaller models for routine tasks
+
+## Deployment Checklist
+
+<Steps>
+  <Step title="Prepare environment">
+    - [ ] Generate secure tokens
+    - [ ] Set all required environment variables
+    - [ ] Test locally with production config
+  </Step>
+
+  <Step title="Deploy backend">
+    - [ ] Run `npx convex deploy`
+    - [ ] Verify in Convex dashboard
+    - [ ] Test HTTP endpoints
+  </Step>
+
+  <Step title="Deploy frontend">
+    - [ ] Build production assets
+    - [ ] Deploy to hosting provider
+    - [ ] Verify CONVEX_URL is set
+  </Step>
+
+  <Step title="Enable automation">
+    - [ ] Verify crons are running
+    - [ ] Test scheduled tick execution
+    - [ ] Monitor first few cycles
+  </Step>
+
+  <Step title="Set up monitoring">
+    - [ ] Configure health checks
+    - [ ] Set up logging
+    - [ ] Create alerts
+  </Step>
+</Steps>
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="Monitoring Guide" icon="chart-line" href="/guides/monitoring">
+    Deep dive into observability.
+  </Card>
+  <Card title="Scaling Guide" icon="arrows-up-down" href="/guides/scaling">
+    Advanced scaling strategies.
+  </Card>
+</CardGroup>

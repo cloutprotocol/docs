@@ -1,0 +1,412 @@
+---
+title: "Memories API"
+description: "Endpoints for the agent memory system"
+---
+
+## GET /memories
+
+Query agent memories with filters.
+
+### Request
+
+```bash
+curl "https://your-project.convex.cloud/memories?type=episodic&limit=10"
+```
+
+### Query Parameters
+
+| Parameter | Type | Default | Description |
+|-----------|------|---------|-------------|
+| `limit` | number | 20 | Max items (1-100) |
+| `offset` | number | 0 | Items to skip |
+| `type` | string | - | Memory type filter |
+| `minImportance` | number | - | Minimum importance (0-1) |
+| `since` | number | - | Only after timestamp |
+| `query` | string | - | Semantic search query |
+| `threshold` | number | 0.6 | Similarity threshold for search |
+
+### Response
+
+```json
+{
+  "memories": [
+    {
+      "_id": "mem_abc123",
+      "type": "episodic",
+      "content": "Observed unusual trading volume in ETH markets",
+      "importance": 0.75,
+      "salience": 0.68,
+      "confidence": 0.9,
+      "sentiment": {
+        "score": 0.2,
+        "label": "positive"
+      },
+      "metadata": {
+        "context": "market analysis",
+        "entities": ["ETH", "trading", "volume"],
+        "mood": "contemplative",
+        "routine": "day"
+      },
+      "unique": true,
+      "createdAt": 1706400000000,
+      "lastAccessedAt": 1706410000000
+    }
+  ],
+  "total": 1523,
+  "hasMore": true
+}
+```
+
+---
+
+## GET /memories/search
+
+Semantic search across memories.
+
+### Request
+
+```bash
+curl "https://your-project.convex.cloud/memories/search?q=ethereum%20scaling&limit=10"
+```
+
+### Query Parameters
+
+| Parameter | Type | Default | Description |
+|-----------|------|---------|-------------|
+| `q` | string | Required | Search query |
+| `limit` | number | 10 | Max results |
+| `type` | string | - | Filter by type |
+| `threshold` | number | 0.6 | Min similarity |
+| `recency` | string | - | Time filter (1h, 24h, 7d, 30d) |
+
+### Response
+
+```json
+{
+  "results": [
+    {
+      "memory": { ... },
+      "similarity": 0.87,
+      "relevanceScore": 0.82
+    }
+  ],
+  "query": "ethereum scaling",
+  "searchTime": 45
+}
+```
+
+---
+
+## GET /memories/core
+
+Get consolidated core memories.
+
+### Request
+
+```bash
+curl "https://your-project.convex.cloud/memories/core?limit=20"
+```
+
+### Response
+
+```json
+{
+  "coreMemories": [
+    {
+      "_id": "core_abc123",
+      "theme": "Ethereum ecosystem development",
+      "summary": "Ethereum continues to evolve with L2 solutions...",
+      "memories": ["mem_1", "mem_2", "mem_3"],
+      "confidence": 0.85,
+      "lastReinforced": 1706400000000,
+      "createdAt": 1706000000000
+    }
+  ],
+  "total": 45
+}
+```
+
+---
+
+## GET /memories/stats
+
+Get memory system statistics.
+
+### Request
+
+```bash
+curl https://your-project.convex.cloud/memories/stats
+```
+
+### Response
+
+```json
+{
+  "total": 5234,
+  "byType": {
+    "episodic": 2100,
+    "semantic": 1800,
+    "emotional": 650,
+    "procedural": 400,
+    "reflection": 284
+  },
+  "avgImportance": 0.58,
+  "avgConfidence": 0.72,
+  "avgSalience": 0.45,
+  "uniqueRate": 0.89,
+  "coreMemories": 89,
+  "links": 12450,
+  "oldestMemory": 1704067200000,
+  "newestMemory": 1706400000000,
+  "lastConsolidation": 1706380000000,
+  "storageEstimate": "45.2 MB"
+}
+```
+
+---
+
+## GET /memories/linked
+
+Get a memory with all its links.
+
+### Request
+
+```bash
+curl "https://your-project.convex.cloud/memories/linked?id=mem_abc123"
+```
+
+### Response
+
+```json
+{
+  "memory": {
+    "_id": "mem_abc123",
+    "type": "episodic",
+    "content": "..."
+  },
+  "links": [
+    {
+      "targetId": "mem_def456",
+      "type": "caused_by",
+      "strength": 0.85,
+      "confidence": 0.9
+    },
+    {
+      "targetId": "mem_ghi789",
+      "type": "related_to",
+      "strength": 0.72,
+      "confidence": 0.8
+    }
+  ],
+  "backlinks": [
+    {
+      "sourceId": "mem_jkl012",
+      "type": "elaborates",
+      "strength": 0.78,
+      "confidence": 0.85
+    }
+  ]
+}
+```
+
+---
+
+## POST /memories/store
+
+Store a new memory.
+
+### Request
+
+```bash
+curl -X POST https://your-project.convex.cloud/memories/store \
+  -H "Authorization: Bearer YOUR_WRITE_TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "type": "episodic",
+    "content": "Discovered interesting pattern in DeFi protocols",
+    "importance": 0.7,
+    "metadata": {
+      "context": "research",
+      "entities": ["DeFi", "protocols"],
+      "source": "manual"
+    }
+  }'
+```
+
+### Request Body
+
+| Field | Type | Required | Description |
+|-------|------|----------|-------------|
+| `type` | string | Yes | Memory type |
+| `content` | string | Yes | Memory content |
+| `importance` | number | No | 0-1 (default: auto-calculated) |
+| `salience` | number | No | 0-1 (default: auto-calculated) |
+| `confidence` | number | No | 0-1 (default: 0.8) |
+| `metadata` | object | No | Additional metadata |
+
+### Response
+
+```json
+{
+  "success": true,
+  "memoryId": "mem_xyz789",
+  "embedding": true,
+  "sentiment": {
+    "score": 0.3,
+    "label": "positive"
+  }
+}
+```
+
+---
+
+## POST /memories/store-dedup
+
+Store with deduplication check.
+
+### Request
+
+```bash
+curl -X POST https://your-project.convex.cloud/memories/store-dedup \
+  -H "Authorization: Bearer YOUR_WRITE_TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "type": "semantic",
+    "content": "Ethereum uses proof-of-stake consensus",
+    "importance": 0.6
+  }'
+```
+
+### Response (New Memory)
+
+```json
+{
+  "success": true,
+  "memoryId": "mem_new123",
+  "deduplicated": false,
+  "unique": true
+}
+```
+
+### Response (Duplicate Found)
+
+```json
+{
+  "success": true,
+  "memoryId": "mem_existing456",
+  "deduplicated": true,
+  "unique": false,
+  "similarity": 0.94,
+  "action": "merged"
+}
+```
+
+---
+
+## POST /memories/consolidate
+
+Trigger memory consolidation.
+
+### Request
+
+```bash
+curl -X POST https://your-project.convex.cloud/memories/consolidate \
+  -H "Authorization: Bearer YOUR_TICK_TOKEN"
+```
+
+### Response
+
+```json
+{
+  "success": true,
+  "memoriesProcessed": 500,
+  "clustersFound": 23,
+  "coreMemoriesCreated": 5,
+  "coreMemoriesUpdated": 12,
+  "memoriesDecayed": 45,
+  "duration": 12340
+}
+```
+
+---
+
+## POST /memories/reflect
+
+Generate a self-reflection memory.
+
+### Request
+
+```bash
+curl -X POST https://your-project.convex.cloud/memories/reflect \
+  -H "Authorization: Bearer YOUR_TICK_TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "type": "behavioral",
+    "focus": "recent market analysis patterns"
+  }'
+```
+
+### Request Body
+
+| Field | Type | Required | Description |
+|-------|------|----------|-------------|
+| `type` | string | No | Reflection type (emotional, knowledge, behavioral, growth) |
+| `focus` | string | No | Topic to reflect on |
+| `depth` | string | No | "shallow" or "deep" |
+
+### Response
+
+```json
+{
+  "success": true,
+  "reflection": {
+    "_id": "mem_ref123",
+    "type": "reflection",
+    "content": "I notice I tend to be more analytical during market volatility...",
+    "reflectionType": "behavioral",
+    "confidence": 0.85,
+    "basedOn": ["mem_1", "mem_2", "mem_3"]
+  }
+}
+```
+
+---
+
+## POST /memories/link
+
+Detect and create links for a memory.
+
+### Request
+
+```bash
+curl -X POST https://your-project.convex.cloud/memories/link \
+  -H "Authorization: Bearer YOUR_WRITE_TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "memoryId": "mem_abc123",
+    "autoDetect": true
+  }'
+```
+
+### Response
+
+```json
+{
+  "success": true,
+  "linksCreated": [
+    {
+      "targetId": "mem_def456",
+      "type": "related_to",
+      "strength": 0.82,
+      "confidence": 0.9
+    },
+    {
+      "targetId": "mem_ghi789",
+      "type": "elaborates",
+      "strength": 0.75,
+      "confidence": 0.85
+    }
+  ],
+  "totalLinks": 2
+}
+```

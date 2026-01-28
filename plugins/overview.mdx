@@ -1,0 +1,282 @@
+---
+title: "Plugin Overview"
+description: "Extending INK agents with plugins"
+---
+
+Plugins are the primary extension mechanism for INK agents. They allow you to add new capabilities without modifying core agent logic.
+
+## What Plugins Can Do
+
+<CardGroup cols={2}>
+  <Card title="External Integrations" icon="plug">
+    Connect to Twitter, Discord, Telegram, trading platforms, and more.
+  </Card>
+  <Card title="Data Sources" icon="database">
+    Ingest news feeds, market data, social mentions, or custom APIs.
+  </Card>
+  <Card title="Actions" icon="bolt">
+    Post content, execute trades, send notifications, generate images.
+  </Card>
+  <Card title="Analytics" icon="chart-line">
+    Track metrics, log events, send to monitoring systems.
+  </Card>
+</CardGroup>
+
+## Plugin Ecosystem
+
+INK has three categories of plugins:
+
+### Official Plugins
+
+Maintained by the INK team, guaranteed compatibility:
+
+- **@ink/plugin-twitter** - Twitter posting and interaction
+- **@ink/plugin-discord** - Discord bot integration
+- **@ink/plugin-telegram** - Telegram bot integration
+- **@ink/plugin-news** - Multi-source news aggregation
+- **@ink/plugin-trading** - Paper and live trading
+
+### Community Plugins
+
+Built by the community, varying quality:
+
+- **ink-plugin-reddit** - Reddit monitoring and posting
+- **ink-plugin-openai** - OpenAI API integration
+- **ink-plugin-midjourney** - AI image generation
+- **ink-plugin-polymarket** - Prediction market integration
+
+### Custom Plugins
+
+Build your own for specific needs.
+
+## Quick Start
+
+### Using a Plugin
+
+```typescript
+import { Agent } from "@convex-agent/core";
+import { twitterPlugin } from "@ink/plugin-twitter";
+
+const agent = new Agent({
+  name: "my-agent",
+  plugins: [
+    twitterPlugin({
+      apiKey: process.env.TWITTER_API_KEY,
+      apiSecret: process.env.TWITTER_API_SECRET,
+      accessToken: process.env.TWITTER_ACCESS_TOKEN,
+      accessSecret: process.env.TWITTER_ACCESS_SECRET,
+    }),
+  ],
+});
+```
+
+### Building a Plugin
+
+```typescript
+import { Plugin } from "@convex-agent/core";
+
+export const myPlugin: Plugin = {
+  name: "my-plugin",
+  version: "1.0.0",
+
+  async init(agent) {
+    console.log("Plugin initialized");
+  },
+
+  async onTick(context) {
+    // React to each tick
+    console.log(`Mood: ${context.state.mood}`);
+  },
+
+  async cleanup(agent) {
+    console.log("Plugin cleanup");
+  },
+};
+```
+
+## Plugin Interface
+
+Every plugin implements this interface:
+
+```typescript
+interface Plugin {
+  // Identity
+  name: string;
+  version: string;
+  description?: string;
+  author?: string;
+
+  // Dependencies on other plugins
+  dependencies?: string[];
+
+  // Lifecycle
+  init?(agent: Agent): void | Promise<void>;
+  cleanup?(agent: Agent): void | Promise<void>;
+
+  // Tick hook
+  onTick?(context: TickContext): void | Promise<void>;
+
+  // Custom actions
+  actions?: Record<string, ActionHandler>;
+
+  // Event handlers
+  on?: Record<string, EventHandler>;
+}
+```
+
+## Tick Context
+
+Plugins receive full context each tick:
+
+```typescript
+interface TickContext {
+  // Current state
+  state: AgentState;
+
+  // LLM response
+  response: TickResponse;
+
+  // Retrieved data
+  memories: Memory[];
+  knowledge: KnowledgeItem[];
+
+  // Time context
+  routine: Routine;
+
+  // Artifacts to process
+  artifacts: Artifact[];
+
+  // Helper methods
+  remember(memory: NewMemory): Promise<string>;
+  recall(query: string): Promise<Memory[]>;
+  getRecentThought(): ConsciousThought | null;
+  shouldAct(): boolean;
+}
+```
+
+## Plugin Actions
+
+Plugins can expose callable actions:
+
+```typescript
+export const tradingPlugin: Plugin = {
+  name: "trading",
+  version: "1.0.0",
+
+  actions: {
+    async buy(symbol: string, amount: number) {
+      // Execute buy order
+      return { orderId: "...", filled: true };
+    },
+
+    async sell(symbol: string, amount: number) {
+      // Execute sell order
+      return { orderId: "...", filled: true };
+    },
+
+    async getPortfolio() {
+      return { positions: [...], totalValue: 10000 };
+    },
+  },
+};
+
+// Call from code
+const result = await agent.action("trading.buy", "ETH", 100);
+
+// Or via HTTP
+// POST /actions/trading/buy
+// { "symbol": "ETH", "amount": 100 }
+```
+
+## Plugin Events
+
+Plugins can emit and listen to events:
+
+```typescript
+// Emit events
+context.emit("tweet_posted", { id: "...", content: "..." });
+
+// Listen to events
+export const analyticsPlugin: Plugin = {
+  name: "analytics",
+  version: "1.0.0",
+
+  on: {
+    tweet_posted: async (data) => {
+      await trackEvent("social", "tweet", data);
+    },
+
+    memory_created: async (data) => {
+      await trackEvent("memory", "create", data);
+    },
+  },
+};
+```
+
+## Configuration Patterns
+
+### Factory Functions
+
+```typescript
+export function createTwitterPlugin(config: TwitterConfig): Plugin {
+  return {
+    name: "twitter",
+    version: "1.0.0",
+    // ... implementation using config
+  };
+}
+```
+
+### Runtime Configuration
+
+```typescript
+// Update config at runtime
+agent.configurePlugin("twitter", {
+  postEnabled: true,
+  replyEnabled: false,
+});
+```
+
+### Environment-Based
+
+```typescript
+const plugin = createPlugin({
+  enabled: process.env.PLUGIN_ENABLED === "true",
+  apiKey: process.env.PLUGIN_API_KEY,
+});
+```
+
+## Best Practices
+
+<AccordionGroup>
+  <Accordion title="Keep plugins focused">
+    One plugin = one responsibility. A Twitter plugin shouldn't also handle Discord.
+  </Accordion>
+
+  <Accordion title="Handle errors gracefully">
+    Never crash the agent. Log errors, maybe reduce health, but keep running.
+  </Accordion>
+
+  <Accordion title="Respect rate limits">
+    Track API usage. Implement cooldowns. Queue requests if needed.
+  </Accordion>
+
+  <Accordion title="Make plugins testable">
+    Use dependency injection. Mock external services. Write unit tests.
+  </Accordion>
+
+  <Accordion title="Document thoroughly">
+    Include README, configuration options, and usage examples.
+  </Accordion>
+</AccordionGroup>
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="Official Plugins" icon="check" href="/plugins/official">
+    Production-ready plugins from the INK team.
+  </Card>
+  <Card title="Build Custom" icon="hammer" href="/guides/custom-plugins">
+    Step-by-step plugin development guide.
+  </Card>
+</CardGroup>

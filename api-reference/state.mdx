@@ -1,0 +1,310 @@
+---
+title: "State API"
+description: "Endpoints for agent state and activity logs"
+---
+
+## GET /health
+
+Health check endpoint for monitoring.
+
+### Request
+
+```bash
+curl https://your-project.convex.cloud/health
+```
+
+### Response
+
+```json
+{
+  "status": "ok",
+  "model": "anthropic/claude-3.5-sonnet",
+  "lastTick": 1706400000000,
+  "tickCount": 1523,
+  "uptime": 86400,
+  "version": "1.0.0"
+}
+```
+
+### Response Fields
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `status` | string | "ok" or "degraded" |
+| `model` | string | LLM model in use |
+| `lastTick` | number | Timestamp of last tick |
+| `tickCount` | number | Total ticks executed |
+| `uptime` | number | Seconds since start |
+| `version` | string | Agent version |
+
+---
+
+## GET /state
+
+Get the current agent state.
+
+### Request
+
+```bash
+curl https://your-project.convex.cloud/state
+```
+
+### Response
+
+```json
+{
+  "mood": "contemplative",
+  "health": 78,
+  "routine": "day",
+  "volatility": 0.32,
+  "summary": "Analyzing market trends and forming opinions...",
+  "updatedAt": 1706400000000
+}
+```
+
+### Response Fields
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `mood` | string | Current mood (catatonic, contemplative, expressive, chaotic) |
+| `health` | number | Health score (0-100) |
+| `routine` | string | Time of day (morning, day, evening, overnight) |
+| `volatility` | number | Behavioral variance (0-1) |
+| `summary` | string | Current state summary |
+| `updatedAt` | number | Last update timestamp |
+
+---
+
+## GET /logs
+
+Get activity logs.
+
+### Request
+
+```bash
+curl "https://your-project.convex.cloud/logs?limit=10&offset=0"
+```
+
+### Query Parameters
+
+| Parameter | Type | Default | Description |
+|-----------|------|---------|-------------|
+| `limit` | number | 20 | Max items to return (1-100) |
+| `offset` | number | 0 | Items to skip |
+| `mood` | string | - | Filter by mood |
+| `routine` | string | - | Filter by routine |
+| `since` | number | - | Only logs after timestamp |
+| `until` | number | - | Only logs before timestamp |
+
+### Response
+
+```json
+{
+  "logs": [
+    {
+      "_id": "abc123",
+      "mood": "contemplative",
+      "health": 78,
+      "routine": "day",
+      "summary": "Analyzing market trends...",
+      "detail": "Full processing details...",
+      "remark": "The market whispers secrets today.",
+      "timestamp": 1706400000000
+    }
+  ],
+  "total": 1523,
+  "hasMore": true
+}
+```
+
+### Response Fields
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `logs` | array | Array of log entries |
+| `total` | number | Total log count |
+| `hasMore` | boolean | More logs available |
+
+### Log Entry Fields
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `_id` | string | Log ID |
+| `mood` | string | Mood at time of log |
+| `health` | number | Health at time of log |
+| `routine` | string | Routine at time of log |
+| `summary` | string | Brief summary |
+| `detail` | string | Full details |
+| `remark` | string | Optional witty observation |
+| `timestamp` | number | Log timestamp |
+
+---
+
+## POST /tick
+
+Manually trigger an agent tick. Requires authentication.
+
+### Request
+
+```bash
+curl -X POST https://your-project.convex.cloud/tick \
+  -H "Authorization: Bearer YOUR_TICK_TOKEN"
+```
+
+### Response
+
+```json
+{
+  "success": true,
+  "mood": "expressive",
+  "health": 80,
+  "volatility": 0.35,
+  "summary": "Interesting developments observed...",
+  "detail": "Full analysis of recent events...",
+  "remark": "Fortune favors the curious.",
+  "duration": 2340,
+  "artifacts": [
+    {
+      "type": "tweet",
+      "content": "Observing fascinating patterns..."
+    }
+  ]
+}
+```
+
+### Response Fields
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `success` | boolean | Whether tick succeeded |
+| `mood` | string | New mood after tick |
+| `health` | number | New health after tick |
+| `volatility` | number | New volatility |
+| `summary` | string | Tick summary |
+| `detail` | string | Full tick details |
+| `remark` | string | Optional observation |
+| `duration` | number | Tick duration in ms |
+| `artifacts` | array | Generated artifacts |
+
+### Error Response
+
+```json
+{
+  "success": false,
+  "error": "Tick already in progress",
+  "code": "TICK_IN_PROGRESS"
+}
+```
+
+---
+
+## POST /wake
+
+Wake the agent with a note. Useful for external triggers.
+
+### Request
+
+```bash
+curl -X POST https://your-project.convex.cloud/wake \
+  -H "Authorization: Bearer YOUR_WRITE_TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "note": "Important news about Ethereum upgrade",
+    "priority": "high"
+  }'
+```
+
+### Request Body
+
+| Field | Type | Required | Description |
+|-------|------|----------|-------------|
+| `note` | string | Yes | Wake message |
+| `priority` | string | No | "low", "normal", "high" |
+| `triggerTick` | boolean | No | Also trigger a tick |
+
+### Response
+
+```json
+{
+  "success": true,
+  "acknowledged": true,
+  "tickTriggered": false
+}
+```
+
+---
+
+## POST /feed
+
+Apply a feed event to modify agent state.
+
+### Request
+
+```bash
+curl -X POST https://your-project.convex.cloud/feed \
+  -H "Authorization: Bearer YOUR_WRITE_TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "type": "news",
+    "content": "Breaking: Major crypto regulation announced",
+    "impact": "high"
+  }'
+```
+
+### Request Body
+
+| Field | Type | Required | Description |
+|-------|------|----------|-------------|
+| `type` | string | Yes | Feed type (news, market, social, custom) |
+| `content` | string | Yes | Feed content |
+| `impact` | string | No | "low", "medium", "high" |
+| `metadata` | object | No | Additional data |
+
+### Response
+
+```json
+{
+  "success": true,
+  "feedId": "feed_abc123",
+  "stateModified": true,
+  "healthChange": -5
+}
+```
+
+---
+
+## WebSocket: Subscribe to State
+
+Using Convex React client:
+
+```typescript
+import { useQuery } from "convex/react";
+import { api } from "./convex/_generated/api";
+
+function AgentState() {
+  const state = useQuery(api.state.get);
+
+  if (!state) return <div>Loading...</div>;
+
+  return (
+    <div>
+      <p>Mood: {state.mood}</p>
+      <p>Health: {state.health}</p>
+      <p>Routine: {state.routine}</p>
+    </div>
+  );
+}
+```
+
+Using vanilla JavaScript:
+
+```typescript
+import { ConvexClient } from "convex/browser";
+
+const client = new ConvexClient(CONVEX_URL);
+
+// Subscribe to state changes
+client.onUpdate(api.state.get, {}, (state) => {
+  console.log("State updated:", state);
+});
+```

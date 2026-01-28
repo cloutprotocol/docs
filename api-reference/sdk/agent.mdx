@@ -1,0 +1,318 @@
+---
+title: "Agent SDK"
+description: "TypeScript SDK for building INK agents"
+---
+
+The `@convex-agent/core` package provides the main `Agent` class for building autonomous agents.
+
+## Installation
+
+```bash
+npm install @convex-agent/core
+```
+
+## Agent Class
+
+### Constructor
+
+```typescript
+import { Agent } from "@convex-agent/core";
+
+const agent = new Agent({
+  name: "my-agent",
+  description: "A helpful assistant",
+  model: "anthropic/claude-3.5-sonnet",
+  tickInterval: 300000,
+  plugins: [],
+});
+```
+
+### Configuration Options
+
+```typescript
+interface AgentConfig {
+  // Identity
+  name: string;
+  description?: string;
+  avatar?: string;
+
+  // LLM
+  model: string;
+  temperature?: number;      // Default: 0.7
+  maxTokens?: number;        // Default: 2048
+
+  // Timing
+  tickInterval: number;      // Milliseconds
+  tickTimeout?: number;      // Default: 60000
+
+  // Initial state
+  initialState?: {
+    mood?: string;
+    health?: number;
+    volatility?: number;
+  };
+
+  // Memory config
+  memory?: {
+    maxMemories?: number;
+    consolidationInterval?: number;
+    embeddingModel?: string;
+  };
+
+  // Consciousness config
+  consciousness?: {
+    minImportance?: number;
+    brillianceThreshold?: number;
+    thoughtCooldown?: number;
+  };
+
+  // Plugins
+  plugins?: Plugin[];
+
+  // Hooks
+  onTick?: (context: TickContext) => void;
+  onStateChange?: (state: AgentState) => void;
+  onError?: (error: Error) => void;
+}
+```
+
+## Methods
+
+### Lifecycle
+
+```typescript
+// Start the agent
+await agent.start();
+
+// Stop the agent
+await agent.stop();
+
+// Check if running
+const isRunning = agent.isRunning();
+```
+
+### State Management
+
+```typescript
+// Get current state
+const state = await agent.getState();
+
+// Update state
+await agent.setState({
+  mood: "expressive",
+  health: 85,
+});
+
+// Subscribe to state changes
+agent.onStateChange((state) => {
+  console.log("State updated:", state);
+});
+```
+
+### Tick Execution
+
+```typescript
+// Manual tick
+const result = await agent.tick();
+
+// Tick with custom context
+const result = await agent.tick({
+  additionalKnowledge: ["Extra context..."],
+  forceProcess: true,
+});
+```
+
+### Memory Operations
+
+```typescript
+// Store a memory
+const memoryId = await agent.remember({
+  type: "episodic",
+  content: "Something happened",
+  importance: 0.7,
+  metadata: {
+    source: "user",
+    entities: ["topic1", "topic2"],
+  },
+});
+
+// Recall memories
+const memories = await agent.recall("search query", {
+  limit: 10,
+  type: "semantic",
+  threshold: 0.6,
+});
+
+// Trigger reflection
+const reflection = await agent.reflect({
+  type: "behavioral",
+  focus: "recent patterns",
+});
+
+// Get memory stats
+const stats = await agent.getMemoryStats();
+```
+
+### Consciousness
+
+```typescript
+// Generate a thought
+const thought = await agent.think({
+  seeds: ["input1", "input2"],
+});
+
+// Get recent thoughts
+const thoughts = await agent.getThoughts({ limit: 10 });
+
+// Get brilliant moments
+const brilliant = await agent.getBrilliantMoments({ limit: 5 });
+```
+
+### Plugin Management
+
+```typescript
+// Add a plugin
+agent.use(myPlugin);
+
+// Remove a plugin
+agent.unuse("plugin-name");
+
+// Get a plugin
+const plugin = agent.getPlugin("plugin-name");
+
+// Update plugin config
+agent.configurePlugin("plugin-name", { setting: "value" });
+
+// Call plugin action
+const result = await agent.action("plugin.actionName", ...args);
+```
+
+## Events
+
+```typescript
+// State changes
+agent.on("stateChange", (state) => { ... });
+
+// Tick events
+agent.on("tickStart", () => { ... });
+agent.on("tickComplete", (result) => { ... });
+agent.on("tickError", (error) => { ... });
+
+// Memory events
+agent.on("memoryCreated", (memory) => { ... });
+agent.on("memoryConsolidated", (result) => { ... });
+
+// Consciousness events
+agent.on("thought", (thought) => { ... });
+agent.on("brilliantMoment", (thought) => { ... });
+
+// Plugin events
+agent.on("pluginEvent", (name, event, data) => { ... });
+```
+
+## Types
+
+### AgentState
+
+```typescript
+interface AgentState {
+  mood: "catatonic" | "contemplative" | "expressive" | "chaotic";
+  health: number;           // 0-100
+  routine: "morning" | "day" | "evening" | "overnight";
+  volatility: number;       // 0-1
+  summary: string;
+  updatedAt: number;
+}
+```
+
+### TickResult
+
+```typescript
+interface TickResult {
+  success: boolean;
+  mood: string;
+  health: number;
+  volatility: number;
+  summary: string;
+  detail: string;
+  remark?: string;
+  artifacts: Artifact[];
+  duration: number;
+}
+```
+
+### TickContext
+
+```typescript
+interface TickContext {
+  state: AgentState;
+  response: TickResponse;
+  memories: Memory[];
+  knowledge: KnowledgeItem[];
+  routine: Routine;
+  artifacts: Artifact[];
+
+  // Helpers
+  remember(memory: NewMemory): Promise<string>;
+  recall(query: string, options?: RecallOptions): Promise<Memory[]>;
+  getRecentThought(): ConsciousThought | null;
+  shouldAct(): boolean;
+  getActionPriority(): number;
+  emit(event: string, data: any): void;
+  getPlugin(name: string): Plugin;
+}
+```
+
+## Example Usage
+
+```typescript
+import { Agent } from "@convex-agent/core";
+import { twitterPlugin } from "@ink/plugin-twitter";
+
+// Create agent
+const agent = new Agent({
+  name: "sage",
+  description: "A thoughtful crypto analyst",
+  model: "anthropic/claude-3.5-sonnet",
+  tickInterval: 5 * 60 * 1000,  // 5 minutes
+  plugins: [
+    twitterPlugin({
+      apiKey: process.env.TWITTER_API_KEY!,
+      // ...
+    }),
+  ],
+});
+
+// Set up event handlers
+agent.on("thought", (thought) => {
+  console.log(`New thought: ${thought.content}`);
+});
+
+agent.on("brilliantMoment", (thought) => {
+  console.log(`Brilliant insight: ${thought.content}`);
+});
+
+// Start the agent
+await agent.start();
+
+// Manual operations
+await agent.remember({
+  type: "semantic",
+  content: "Important fact to remember",
+  importance: 0.8,
+});
+
+const relevant = await agent.recall("crypto markets");
+console.log("Relevant memories:", relevant);
+```
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="Memory Store" icon="brain" href="/api-reference/sdk/memory-store">
+    Memory system SDK reference.
+  </Card>
+  <Card title="Plugins SDK" icon="plug" href="/api-reference/sdk/plugins">
+    Plugin development reference.
+  </Card>
+</CardGroup>

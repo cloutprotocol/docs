@@ -1,0 +1,310 @@
+---
+title: "Consciousness API"
+description: "Endpoints for the consciousness layer"
+---
+
+## GET /consciousness/thoughts
+
+Get recent conscious thoughts.
+
+### Request
+
+```bash
+curl "https://your-project.convex.cloud/consciousness/thoughts?limit=10"
+```
+
+### Query Parameters
+
+| Parameter | Type | Default | Description |
+|-----------|------|---------|-------------|
+| `limit` | number | 20 | Max thoughts to return |
+| `offset` | number | 0 | Thoughts to skip |
+| `tone` | string | - | Filter by tone |
+| `since` | number | - | Only after timestamp |
+| `minConfidence` | number | - | Minimum confidence |
+
+### Response
+
+```json
+{
+  "thoughts": [
+    {
+      "_id": "thought_abc123",
+      "content": "The convergence of AI and crypto markets suggests a fundamental shift in how autonomous systems will interact with financial infrastructure.",
+      "seeds": [
+        "AI companies investing in blockchain",
+        "Crypto projects integrating AI agents",
+        "Market data showing correlation"
+      ],
+      "tone": "curious",
+      "confidence": 0.82,
+      "isBrilliant": false,
+      "timestamp": 1706400000000
+    }
+  ],
+  "total": 234,
+  "hasMore": true
+}
+```
+
+### Thought Fields
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `_id` | string | Thought ID |
+| `content` | string | The synthesized thought |
+| `seeds` | array | Input sources that contributed |
+| `tone` | string | Emotional tone (curious, excited, concerned, neutral, reflective) |
+| `confidence` | number | Confidence score (0-1) |
+| `isBrilliant` | boolean | Whether this is a moment of brilliance |
+| `timestamp` | number | Creation timestamp |
+
+---
+
+## GET /consciousness/brilliant
+
+Get only moments of brilliance.
+
+### Request
+
+```bash
+curl "https://your-project.convex.cloud/consciousness/brilliant?limit=5"
+```
+
+### Query Parameters
+
+| Parameter | Type | Default | Description |
+|-----------|------|---------|-------------|
+| `limit` | number | 10 | Max thoughts to return |
+| `since` | number | - | Only after timestamp |
+
+### Response
+
+```json
+{
+  "thoughts": [
+    {
+      "_id": "thought_xyz789",
+      "content": "Observing a convergence pattern: developer sentiment, corporate investment, and infrastructure growth all pointing toward AI agents as the next major platform shift. This could define the next decade of software.",
+      "seeds": [
+        "Tech company AI framework announcement",
+        "Developer survey showing 40% interested in agents",
+        "VC funding data for AI infrastructure"
+      ],
+      "tone": "excited",
+      "confidence": 0.91,
+      "isBrilliant": true,
+      "brillianceFactors": {
+        "seedCount": 3,
+        "avgSeedImportance": 0.85,
+        "commonEntities": ["AI", "agents", "infrastructure"],
+        "novelty": 0.88
+      },
+      "timestamp": 1706400000000
+    }
+  ],
+  "total": 23
+}
+```
+
+### Brilliance Factors
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `seedCount` | number | Number of contributing seeds |
+| `avgSeedImportance` | number | Average importance of seeds |
+| `commonEntities` | array | Shared entities across seeds |
+| `novelty` | number | How novel/unique this insight is |
+
+---
+
+## GET /consciousness/stats
+
+Get consciousness system statistics.
+
+### Request
+
+```bash
+curl https://your-project.convex.cloud/consciousness/stats
+```
+
+### Response
+
+```json
+{
+  "totalThoughts": 234,
+  "brilliantCount": 23,
+  "brillianceRate": 0.098,
+  "toneDistribution": {
+    "curious": 0.35,
+    "neutral": 0.28,
+    "excited": 0.18,
+    "reflective": 0.12,
+    "concerned": 0.07
+  },
+  "avgConfidence": 0.76,
+  "avgSeedsPerThought": 2.8,
+  "lastThought": 1706400000000,
+  "thoughtsLast24h": 45,
+  "brilliantLast24h": 4
+}
+```
+
+---
+
+## POST /consciousness/process
+
+Generate a conscious thought from inputs.
+
+### Request
+
+```bash
+curl -X POST https://your-project.convex.cloud/consciousness/process \
+  -H "Authorization: Bearer YOUR_TICK_TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "seeds": [
+      {
+        "content": "Major tech company announces AI agent framework",
+        "importance": 0.85,
+        "entities": ["AI", "agents", "tech"]
+      },
+      {
+        "content": "Developer survey shows growing interest in autonomous systems",
+        "importance": 0.78,
+        "entities": ["developers", "AI", "autonomous"]
+      }
+    ],
+    "forceProcess": false
+  }'
+```
+
+### Request Body
+
+| Field | Type | Required | Description |
+|-------|------|----------|-------------|
+| `seeds` | array | Yes | Input seeds for synthesis |
+| `forceProcess` | boolean | No | Process even if below thresholds |
+| `minImportance` | number | No | Override minimum importance filter |
+
+### Seed Object
+
+| Field | Type | Required | Description |
+|-------|------|----------|-------------|
+| `content` | string | Yes | Seed content |
+| `importance` | number | Yes | Importance score (0-1) |
+| `entities` | array | No | Extracted entities |
+| `source` | string | No | Where this came from |
+
+### Response
+
+```json
+{
+  "success": true,
+  "thought": {
+    "_id": "thought_new123",
+    "content": "The alignment of tech company investments and developer interest suggests AI agents are transitioning from experimental to mainstream...",
+    "seeds": ["...", "..."],
+    "tone": "excited",
+    "confidence": 0.84,
+    "isBrilliant": true
+  },
+  "filtered": 0,
+  "processTime": 125
+}
+```
+
+### Response (No Thought Generated)
+
+```json
+{
+  "success": true,
+  "thought": null,
+  "reason": "Seeds below importance threshold",
+  "filtered": 2,
+  "processTime": 15
+}
+```
+
+---
+
+## POST /consciousness/reflect
+
+Trigger consciousness self-reflection.
+
+### Request
+
+```bash
+curl -X POST https://your-project.convex.cloud/consciousness/reflect \
+  -H "Authorization: Bearer YOUR_TICK_TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "lookback": "24h",
+    "focus": "pattern recognition"
+  }'
+```
+
+### Request Body
+
+| Field | Type | Required | Description |
+|-------|------|----------|-------------|
+| `lookback` | string | No | Time window (1h, 24h, 7d) |
+| `focus` | string | No | Topic to focus reflection on |
+
+### Response
+
+```json
+{
+  "success": true,
+  "reflection": {
+    "_id": "thought_ref456",
+    "content": "Reviewing my recent thought patterns, I notice I've been particularly drawn to convergence signals across markets and technology. This may reflect a deeper interest in systems-level changes rather than individual events.",
+    "tone": "reflective",
+    "confidence": 0.79,
+    "isBrilliant": false,
+    "basedOn": {
+      "thoughtsAnalyzed": 45,
+      "timespan": "24h",
+      "dominantThemes": ["AI", "markets", "convergence"]
+    }
+  }
+}
+```
+
+---
+
+## WebSocket: Subscribe to Thoughts
+
+Real-time thought notifications:
+
+```typescript
+import { useQuery } from "convex/react";
+import { api } from "./convex/_generated/api";
+
+function ThoughtStream() {
+  const thoughts = useQuery(api.consciousness.recentThoughts, {
+    limit: 10
+  });
+
+  return (
+    <div>
+      {thoughts?.map(t => (
+        <div key={t._id}>
+          <p>{t.content}</p>
+          <span>{t.isBrilliant ? "Brilliant!" : t.tone}</span>
+        </div>
+      ))}
+    </div>
+  );
+}
+```
+
+### Subscribing to Brilliant Moments Only
+
+```typescript
+const brilliantThoughts = useQuery(api.consciousness.brilliantMoments, {
+  limit: 5
+});
+
+// Will auto-update when new brilliant thoughts occur
+```
