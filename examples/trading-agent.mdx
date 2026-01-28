@@ -293,7 +293,7 @@ function analyzeForSignal(content: string): { symbol: string; direction: "buy" |
 import { Agent } from "@convex-agent/core";
 import { createMarketsPlugin } from "./plugins/markets";
 import { createPaperTradingPlugin } from "./plugins/paper-trading";
-import { newsPlugin } from "@ink/plugin-news";
+import { newsPlugin } from "@clarkos/plugin-news";
 
 export const tradingAgent = new Agent({
   name: "trader",

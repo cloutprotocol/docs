@@ -1,22 +1,22 @@
 ---
 title: "Official Plugins"
-description: "Production-ready plugins maintained by the INK team"
+description: "Production-ready plugins maintained by the ClarkOS team"
 ---
 
-Official plugins are fully supported, regularly updated, and guaranteed to work with the latest INK version.
+Official plugins are fully supported, regularly updated, and guaranteed to work with the latest ClarkOS version.
 
 ## Social Plugins
 
-### @ink/plugin-twitter
+### @clarkos/plugin-twitter
 
 Full Twitter integration for posting, replying, and monitoring.
 
 ```bash
-npm install @ink/plugin-twitter
+npm install @clarkos/plugin-twitter
 ```
 
 ```typescript
-import { twitterPlugin } from "@ink/plugin-twitter";
+import { twitterPlugin } from "@clarkos/plugin-twitter";
 
 const agent = new Agent({
   plugins: [
@@ -56,16 +56,16 @@ const agent = new Agent({
 
 ---
 
-### @ink/plugin-discord
+### @clarkos/plugin-discord
 
 Discord bot integration for community engagement.
 
 ```bash
-npm install @ink/plugin-discord
+npm install @clarkos/plugin-discord
 ```
 
 ```typescript
-import { discordPlugin } from "@ink/plugin-discord";
+import { discordPlugin } from "@clarkos/plugin-discord";
 
 const agent = new Agent({
   plugins: [
@@ -92,16 +92,16 @@ const agent = new Agent({
 
 ---
 
-### @ink/plugin-telegram
+### @clarkos/plugin-telegram
 
 Telegram bot for direct user interaction.
 
 ```bash
-npm install @ink/plugin-telegram
+npm install @clarkos/plugin-telegram
 ```
 
 ```typescript
-import { telegramPlugin } from "@ink/plugin-telegram";
+import { telegramPlugin } from "@clarkos/plugin-telegram";
 
 const agent = new Agent({
   plugins: [
@@ -119,16 +119,16 @@ const agent = new Agent({
 
 ## Data Plugins
 
-### @ink/plugin-news
+### @clarkos/plugin-news
 
 Multi-source news aggregation with smart filtering.
 
 ```bash
-npm install @ink/plugin-news
+npm install @clarkos/plugin-news
 ```
 
 ```typescript
-import { newsPlugin } from "@ink/plugin-news";
+import { newsPlugin } from "@clarkos/plugin-news";
 
 const agent = new Agent({
   plugins: [
@@ -165,16 +165,16 @@ const agent = new Agent({
 
 ---
 
-### @ink/plugin-markets
+### @clarkos/plugin-markets
 
 Real-time market data integration.
 
 ```bash
-npm install @ink/plugin-markets
+npm install @clarkos/plugin-markets
 ```
 
 ```typescript
-import { marketsPlugin } from "@ink/plugin-markets";
+import { marketsPlugin } from "@clarkos/plugin-markets";
 
 const agent = new Agent({
   plugins: [
@@ -211,16 +211,16 @@ const agent = new Agent({
 
 ## Action Plugins
 
-### @ink/plugin-trading
+### @clarkos/plugin-trading
 
 Paper and live trading capabilities.
 
 ```bash
-npm install @ink/plugin-trading
+npm install @clarkos/plugin-trading
 ```
 
 ```typescript
-import { tradingPlugin } from "@ink/plugin-trading";
+import { tradingPlugin } from "@clarkos/plugin-trading";
 
 const agent = new Agent({
   plugins: [
@@ -257,16 +257,16 @@ const agent = new Agent({
 
 ---
 
-### @ink/plugin-images
+### @clarkos/plugin-images
 
 AI image generation for visual content.
 
 ```bash
-npm install @ink/plugin-images
+npm install @clarkos/plugin-images
 ```
 
 ```typescript
-import { imagesPlugin } from "@ink/plugin-images";
+import { imagesPlugin } from "@clarkos/plugin-images";
 
 const agent = new Agent({
   plugins: [
@@ -294,16 +294,16 @@ const agent = new Agent({
 
 ## Utility Plugins
 
-### @ink/plugin-scheduler
+### @clarkos/plugin-scheduler
 
 Advanced scheduling beyond crons.
 
 ```bash
-npm install @ink/plugin-scheduler
+npm install @clarkos/plugin-scheduler
 ```
 
 ```typescript
-import { schedulerPlugin } from "@ink/plugin-scheduler";
+import { schedulerPlugin } from "@clarkos/plugin-scheduler";
 
 const agent = new Agent({
   plugins: [
@@ -332,16 +332,16 @@ const agent = new Agent({
 
 ---
 
-### @ink/plugin-webhooks
+### @clarkos/plugin-webhooks
 
 Receive external webhooks.
 
 ```bash
-npm install @ink/plugin-webhooks
+npm install @clarkos/plugin-webhooks
 ```
 
 ```typescript
-import { webhooksPlugin } from "@ink/plugin-webhooks";
+import { webhooksPlugin } from "@clarkos/plugin-webhooks";
 
 const agent = new Agent({
   plugins: [
@@ -369,10 +369,10 @@ All official plugins follow the same pattern:
 
 ```bash
 # Install the plugin
-npm install @ink/plugin-NAME
+npm install @clarkos/plugin-NAME
 
 # Import and configure
-import { NAMEPlugin } from "@ink/plugin-NAME";
+import { NAMEPlugin } from "@clarkos/plugin-NAME";
 
 const agent = new Agent({
   plugins: [NAMEPlugin({ ...config })],
@@ -385,7 +385,7 @@ Official plugins are supported through:
 
 - GitHub Issues on each plugin repo
 - Discord #plugins channel
-- Documentation at docs.ink.dev/plugins
+- Documentation at docs.clarkos.dev/plugins
 
 ## Next Steps
 

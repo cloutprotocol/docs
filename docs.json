@@ -1,7 +1,7 @@
 {
   "$schema": "https://mintlify.com/docs.json",
   "theme": "maple",
-  "name": "INK Agent Framework",
+  "name": "ClarkOS Agent Framework",
   "colors": {
     "primary": "#6366F1",
     "light": "#818CF8",
@@ -89,12 +89,12 @@
       "anchors": [
         {
           "anchor": "GitHub",
-          "href": "https://github.com/cloutprotocol/ink",
+          "href": "https://github.com/cloutprotocol/clarkos",
           "icon": "github"
         },
         {
           "anchor": "Discord",
-          "href": "https://discord.gg/ink",
+          "href": "https://discord.gg/clarkos",
           "icon": "discord"
         }
       ]

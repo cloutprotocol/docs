@@ -1,9 +1,9 @@
 ---
 title: "Plugin Overview"
-description: "Extending INK agents with plugins"
+description: "Extending ClarkOS agents with plugins"
 ---
 
-Plugins are the primary extension mechanism for INK agents. They allow you to add new capabilities without modifying core agent logic.
+Plugins are the primary extension mechanism for ClarkOS agents. They allow you to add new capabilities without modifying core agent logic.
 
 ## What Plugins Can Do
 
@@ -24,26 +24,26 @@ Plugins are the primary extension mechanism for INK agents. They allow you to ad
 
 ## Plugin Ecosystem
 
-INK has three categories of plugins:
+ClarkOS has three categories of plugins:
 
 ### Official Plugins
 
-Maintained by the INK team, guaranteed compatibility:
+Maintained by the ClarkOS team, guaranteed compatibility:
 
-- **@ink/plugin-twitter** - Twitter posting and interaction
-- **@ink/plugin-discord** - Discord bot integration
-- **@ink/plugin-telegram** - Telegram bot integration
-- **@ink/plugin-news** - Multi-source news aggregation
-- **@ink/plugin-trading** - Paper and live trading
+- **@clarkos/plugin-twitter** - Twitter posting and interaction
+- **@clarkos/plugin-discord** - Discord bot integration
+- **@clarkos/plugin-telegram** - Telegram bot integration
+- **@clarkos/plugin-news** - Multi-source news aggregation
+- **@clarkos/plugin-trading** - Paper and live trading
 
 ### Community Plugins
 
 Built by the community, varying quality:
 
-- **ink-plugin-reddit** - Reddit monitoring and posting
-- **ink-plugin-openai** - OpenAI API integration
-- **ink-plugin-midjourney** - AI image generation
-- **ink-plugin-polymarket** - Prediction market integration
+- **clarkos-plugin-reddit** - Reddit monitoring and posting
+- **clarkos-plugin-openai** - OpenAI API integration
+- **clarkos-plugin-midjourney** - AI image generation
+- **clarkos-plugin-polymarket** - Prediction market integration
 
 ### Custom Plugins
 
@@ -55,7 +55,7 @@ Build your own for specific needs.
 
 ```typescript
 import { Agent } from "@convex-agent/core";
-import { twitterPlugin } from "@ink/plugin-twitter";
+import { twitterPlugin } from "@clarkos/plugin-twitter";
 
 const agent = new Agent({
   name: "my-agent",
@@ -274,7 +274,7 @@ const plugin = createPlugin({
 
 <CardGroup cols={2}>
   <Card title="Official Plugins" icon="check" href="/plugins/official">
-    Production-ready plugins from the INK team.
+    Production-ready plugins from the ClarkOS team.
   </Card>
   <Card title="Build Custom" icon="hammer" href="/guides/custom-plugins">
     Step-by-step plugin development guide.

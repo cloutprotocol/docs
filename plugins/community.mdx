@@ -1,9 +1,9 @@
 ---
 title: "Community Plugins"
-description: "Plugins built by the INK community"
+description: "Plugins built by the ClarkOS community"
 ---
 
-Community plugins extend INK's capabilities beyond official offerings. Quality varies—always review code before using in production.
+Community plugins extend ClarkOS's capabilities beyond official offerings. Quality varies—always review code before using in production.
 
 ## Featured Plugins
 
@@ -11,16 +11,16 @@ Community plugins extend INK's capabilities beyond official offerings. Quality v
   These plugins have been reviewed by the community and are widely used. However, they are not officially supported.
 </Note>
 
-### ink-plugin-reddit
+### clarkos-plugin-reddit
 
 Monitor and interact with Reddit.
 
 ```bash
-npm install ink-plugin-reddit
+npm install clarkos-plugin-reddit
 ```
 
 ```typescript
-import { redditPlugin } from "ink-plugin-reddit";
+import { redditPlugin } from "clarkos-plugin-reddit";
 
 const agent = new Agent({
   plugins: [
@@ -38,20 +38,20 @@ const agent = new Agent({
 ```
 
 **Author:** @crypto-dev
-**GitHub:** github.com/crypto-dev/ink-plugin-reddit
+**GitHub:** github.com/crypto-dev/clarkos-plugin-reddit
 
 ---
 
-### ink-plugin-notion
+### clarkos-plugin-notion
 
 Sync with Notion databases.
 
 ```bash
-npm install ink-plugin-notion
+npm install clarkos-plugin-notion
 ```
 
 ```typescript
-import { notionPlugin } from "ink-plugin-notion";
+import { notionPlugin } from "clarkos-plugin-notion";
 
 const agent = new Agent({
   plugins: [
@@ -68,20 +68,20 @@ const agent = new Agent({
 ```
 
 **Author:** @productivity-hacker
-**GitHub:** github.com/productivity-hacker/ink-plugin-notion
+**GitHub:** github.com/productivity-hacker/clarkos-plugin-notion
 
 ---
 
-### ink-plugin-voice
+### clarkos-plugin-voice
 
 Text-to-speech and voice output.
 
 ```bash
-npm install ink-plugin-voice
+npm install clarkos-plugin-voice
 ```
 
 ```typescript
-import { voicePlugin } from "ink-plugin-voice";
+import { voicePlugin } from "clarkos-plugin-voice";
 
 const agent = new Agent({
   plugins: [
@@ -98,20 +98,20 @@ const agent = new Agent({
 ```
 
 **Author:** @audio-ai
-**GitHub:** github.com/audio-ai/ink-plugin-voice
+**GitHub:** github.com/audio-ai/clarkos-plugin-voice
 
 ---
 
-### ink-plugin-email
+### clarkos-plugin-email
 
 Send and receive emails.
 
 ```bash
-npm install ink-plugin-email
+npm install clarkos-plugin-email
 ```
 
 ```typescript
-import { emailPlugin } from "ink-plugin-email";
+import { emailPlugin } from "clarkos-plugin-email";
 
 const agent = new Agent({
   plugins: [
@@ -133,31 +133,31 @@ const agent = new Agent({
 ```
 
 **Author:** @comms-dev
-**GitHub:** github.com/comms-dev/ink-plugin-email
+**GitHub:** github.com/comms-dev/clarkos-plugin-email
 
 ## All Community Plugins
 
 | Plugin | Description | Author | Stars |
 |--------|-------------|--------|-------|
-| ink-plugin-reddit | Reddit integration | @crypto-dev | 234 |
-| ink-plugin-notion | Notion sync | @productivity-hacker | 189 |
-| ink-plugin-voice | TTS/voice | @audio-ai | 156 |
-| ink-plugin-email | Email handling | @comms-dev | 145 |
-| ink-plugin-slack | Slack integration | @enterprise-ai | 134 |
-| ink-plugin-whatsapp | WhatsApp bot | @mobile-dev | 121 |
-| ink-plugin-youtube | YouTube monitoring | @content-ai | 98 |
-| ink-plugin-linkedin | LinkedIn posting | @professional | 87 |
-| ink-plugin-github | GitHub integration | @dev-tools | 76 |
-| ink-plugin-calendar | Google Calendar | @scheduling | 65 |
-| ink-plugin-weather | Weather data | @data-fetcher | 54 |
-| ink-plugin-wolfram | Wolfram Alpha | @math-ai | 43 |
+| clarkos-plugin-reddit | Reddit integration | @crypto-dev | 234 |
+| clarkos-plugin-notion | Notion sync | @productivity-hacker | 189 |
+| clarkos-plugin-voice | TTS/voice | @audio-ai | 156 |
+| clarkos-plugin-email | Email handling | @comms-dev | 145 |
+| clarkos-plugin-slack | Slack integration | @enterprise-ai | 134 |
+| clarkos-plugin-whatsapp | WhatsApp bot | @mobile-dev | 121 |
+| clarkos-plugin-youtube | YouTube monitoring | @content-ai | 98 |
+| clarkos-plugin-linkedin | LinkedIn posting | @professional | 87 |
+| clarkos-plugin-github | GitHub integration | @dev-tools | 76 |
+| clarkos-plugin-calendar | Google Calendar | @scheduling | 65 |
+| clarkos-plugin-weather | Weather data | @data-fetcher | 54 |
+| clarkos-plugin-wolfram | Wolfram Alpha | @math-ai | 43 |
 
 ## Finding Plugins
 
 ### NPM Search
 
 ```bash
-npm search ink-plugin
+npm search clarkos-plugin
 ```
 
 ### GitHub Topics
@@ -169,7 +169,7 @@ Search for repositories tagged with:
 ### Community Registry
 
 Browse our community registry at:
-- [plugins.ink.dev](https://plugins.ink.dev)
+- [plugins.clarkos.dev](https://plugins.clarkos.dev)
 
 ## Evaluating Plugins
 
@@ -179,7 +179,7 @@ Before using a community plugin:
   <Step title="Check maintenance">
     - When was the last commit?
     - Are issues being addressed?
-    - Is it compatible with latest INK?
+    - Is it compatible with latest ClarkOS?
   </Step>
 
   <Step title="Review code">
@@ -206,7 +206,7 @@ Before using a community plugin:
 ### Submission Process
 
 1. Build and test your plugin
-2. Publish to NPM with `ink-plugin-` prefix
+2. Publish to NPM with `clarkos-plugin-` prefix
 3. Add `ink-agent-plugin` topic to GitHub repo
 4. Submit PR to plugins registry
 
@@ -222,7 +222,7 @@ Before using a community plugin:
 
 ```typescript
 // Use our template to get started
-npx create-ink-plugin my-plugin
+npx create-clarkos-plugin my-plugin
 ```
 
 This scaffolds:
@@ -250,7 +250,7 @@ This scaffolds:
 
 - **Plugin issues:** File on the plugin's GitHub repo
 - **General questions:** Ask in Discord #community-plugins
-- **Security concerns:** Email security@ink.dev
+- **Security concerns:** Email security@clarkos.dev
 
 ## Next Steps
 

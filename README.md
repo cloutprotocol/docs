@@ -1,10 +1,10 @@
-# INK Agent Framework Documentation
+# ClarkOS Agent Framework Documentation
 
-Official documentation for the INK Agent Framework - the next generation of autonomous AI agents.
+Official documentation for the ClarkOS Agent Framework - the next generation of autonomous AI agents.
 
-## About INK
+## About ClarkOS
 
-INK is a TypeScript-first agent framework that goes beyond simple chatbots. Built on Convex's serverless infrastructure, INK agents have:
+ClarkOS is a TypeScript-first agent framework that goes beyond simple chatbots. Built on Convex's serverless infrastructure, ClarkOS agents have:
 
 - **Persistent Memory** - Multi-layered cognitive memory with 5 distinct types
 - **Consciousness Layer** - Higher-order thought synthesis and moments of brilliance
@@ -13,14 +13,14 @@ INK is a TypeScript-first agent framework that goes beyond simple chatbots. Buil
 
 ## Documentation
 
-Visit [docs.ink.dev](https://docs.ink.dev) for the full documentation.
+Visit [docs.clarkos.dev](https://docs.clarkos.dev) for the full documentation.
 
 ### Quick Links
 
-- [Quickstart](https://docs.ink.dev/quickstart) - Get your first agent running
-- [Core Concepts](https://docs.ink.dev/concepts/agents) - Understand the architecture
-- [Memory System](https://docs.ink.dev/concepts/memory) - Deep dive into cognitive memory
-- [API Reference](https://docs.ink.dev/api-reference/introduction) - Complete REST API docs
+- [Quickstart](https://docs.clarkos.dev/quickstart) - Get your first agent running
+- [Core Concepts](https://docs.clarkos.dev/concepts/agents) - Understand the architecture
+- [Memory System](https://docs.clarkos.dev/concepts/memory) - Deep dive into cognitive memory
+- [API Reference](https://docs.clarkos.dev/api-reference/introduction) - Complete REST API docs
 
 ## Local Development
 
@@ -35,12 +35,12 @@ View your local preview at `http://localhost:3000`.
 
 ## Contributing
 
-We welcome contributions! Please see our [contribution guidelines](https://docs.ink.dev/contributing) for details.
+We welcome contributions! Please see our [contribution guidelines](https://docs.clarkos.dev/contributing) for details.
 
 ## Community
 
-- [Discord](https://discord.gg/ink) - Chat with other builders
-- [GitHub](https://github.com/cloutprotocol/ink) - Star the repo and contribute
+- [Discord](https://discord.gg/clarkos) - Chat with other builders
+- [GitHub](https://github.com/cloutprotocol/clarkos) - Star the repo and contribute
 - [Twitter](https://twitter.com/cloutprotocol) - Follow for updates
 
 ## License
