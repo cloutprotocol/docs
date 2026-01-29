@@ -27,7 +27,8 @@ graph TD
 
 ```typescript
 // plugins/markets.ts
-import { Plugin, TickContext } from "@convex-agent/core";
+import type { Plugin, TickContext } from "@convex-agent/core";
+import type { Agent } from "@convex-agent/core";
 
 interface MarketData {
   symbol: string;
@@ -47,7 +48,7 @@ export function createMarketsPlugin(config: {
     name: "markets",
     version: "1.0.0",
 
-    async init(agent) {
+    async init(agent: Agent) {
       // Initial fetch
       cachedData = await fetchMarketData(config.symbols);
       lastFetch = Date.now();
@@ -60,30 +61,22 @@ export function createMarketsPlugin(config: {
         lastFetch = Date.now();
       }
 
-      // Store as knowledge
+      // Log significant market moves
       for (const data of cachedData) {
-        await context.remember({
-          type: "semantic",
-          content: `${data.symbol}: $${data.price} (${data.change24h > 0 ? "+" : ""}${data.change24h.toFixed(2)}%)`,
-          importance: Math.abs(data.change24h) > 5 ? 0.8 : 0.5,
-          metadata: {
-            type: "market_data",
-            symbol: data.symbol,
-            price: data.price,
-            change: data.change24h,
-          },
-        });
+        if (Math.abs(data.change24h) > 5) {
+          console.log(`Significant move: ${data.symbol} ${data.change24h > 0 ? "+" : ""}${data.change24h.toFixed(2)}%`);
+        }
       }
     },
 
     actions: {
       async getMarkets() {
-        return cachedData;
+        return { success: true, data: cachedData };
       },
 
-      async getPrice(symbol: string) {
-        const data = cachedData.find(d => d.symbol === symbol);
-        return data?.price || null;
+      async getPrice(params: { symbol: string }) {
+        const data = cachedData.find(d => d.symbol === params.symbol);
+        return { success: true, data: data?.price || null };
       },
     },
   };
@@ -107,7 +100,8 @@ async function fetchMarketData(symbols: string[]): Promise<MarketData[]> {
 
 ```typescript
 // plugins/paper-trading.ts
-import { Plugin, TickContext } from "@convex-agent/core";
+import type { Plugin, TickContext } from "@convex-agent/core";
+import type { Agent } from "@convex-agent/core";
 
 interface Position {
   symbol: string;
@@ -130,197 +124,107 @@ export function createPaperTradingPlugin(config: {
     positions: [],
   };
 
+  const executeBuy = (symbol: string, price: number): { success: boolean; amount?: number; reason?: string } => {
+    const maxAmount = portfolio.cash * config.maxPositionPercent;
+    const amount = maxAmount / price;
+
+    if (amount * price > portfolio.cash) {
+      return { success: false, reason: "Insufficient funds" };
+    }
+
+    portfolio.cash -= amount * price;
+    portfolio.positions.push({
+      symbol,
+      amount,
+      entryPrice: price,
+      entryTime: Date.now(),
+    });
+
+    console.log(`Bought ${amount.toFixed(4)} ${symbol} at $${price}`);
+    return { success: true, amount };
+  };
+
+  const executeSell = (symbol: string, price: number): { success: boolean; pnl?: number; reason?: string } => {
+    const position = portfolio.positions.find(p => p.symbol === symbol);
+    if (!position) {
+      return { success: false, reason: "No position" };
+    }
+
+    const proceeds = position.amount * price;
+    const pnl = proceeds - (position.amount * position.entryPrice);
+
+    portfolio.cash += proceeds;
+    portfolio.positions = portfolio.positions.filter(p => p.symbol !== symbol);
+
+    console.log(`Sold ${position.amount.toFixed(4)} ${symbol} at $${price}, PnL: $${pnl.toFixed(2)}`);
+    return { success: true, pnl };
+  };
+
   return {
     name: "paper-trading",
     version: "1.0.0",
     dependencies: ["markets"],
 
-    async onTick(context: TickContext) {
+    onTick(context: TickContext) {
       // Only trade when expressive and healthy
       if (context.state.mood !== "expressive" || context.state.health < 50) {
         return;
       }
 
-      // Get recent thoughts for trading signals
-      const thought = context.getRecentThought();
-      if (!thought || thought.confidence < 0.7) {
-        return;
-      }
-
-      // Analyze thought for trading intent
-      const signal = analyzeForSignal(thought.content);
-      if (!signal) return;
-
-      // Get current price
-      const markets = context.getPlugin("markets");
-      const price = await markets.actions.getPrice(signal.symbol);
-      if (!price) return;
-
-      // Execute trade
-      if (signal.direction === "buy") {
-        await this.executeBuy(signal.symbol, price, context);
-      } else if (signal.direction === "sell") {
-        await this.executeSell(signal.symbol, price, context);
-      }
-    },
-
-    async executeBuy(symbol: string, price: number, context: TickContext) {
-      const maxAmount = portfolio.cash * config.maxPositionPercent;
-      const amount = maxAmount / price;
-
-      if (amount * price > portfolio.cash) {
-        return { success: false, reason: "Insufficient funds" };
-      }
-
-      portfolio.cash -= amount * price;
-      portfolio.positions.push({
-        symbol,
-        amount,
-        entryPrice: price,
-        entryTime: Date.now(),
-      });
-
-      await context.remember({
-        type: "episodic",
-        content: `Bought ${amount.toFixed(4)} ${symbol} at $${price}`,
-        importance: 0.8,
-        metadata: { type: "trade", action: "buy", symbol, amount, price },
-      });
-
-      context.emit("trade_executed", {
-        action: "buy",
-        symbol,
-        amount,
-        price,
-      });
-
-      return { success: true, amount, price };
-    },
-
-    async executeSell(symbol: string, price: number, context: TickContext) {
-      const position = portfolio.positions.find(p => p.symbol === symbol);
-      if (!position) {
-        return { success: false, reason: "No position" };
-      }
-
-      const proceeds = position.amount * price;
-      const pnl = proceeds - (position.amount * position.entryPrice);
-      const pnlPercent = (pnl / (position.amount * position.entryPrice)) * 100;
-
-      portfolio.cash += proceeds;
-      portfolio.positions = portfolio.positions.filter(p => p.symbol !== symbol);
-
-      await context.remember({
-        type: "episodic",
-        content: `Sold ${position.amount.toFixed(4)} ${symbol} at $${price} (${pnlPercent > 0 ? "+" : ""}${pnlPercent.toFixed(2)}% PnL)`,
-        importance: 0.85,
-        metadata: { type: "trade", action: "sell", symbol, price, pnl, pnlPercent },
-      });
-
-      return { success: true, pnl, pnlPercent };
+      // Log portfolio status each tick
+      const totalValue = portfolio.cash +
+        portfolio.positions.reduce((sum, p) => sum + p.amount * p.entryPrice, 0);
+      console.log(`Portfolio value: $${totalValue.toFixed(2)}`);
     },
 
     actions: {
       async getPortfolio() {
-        const markets = this.agent.getPlugin("markets");
-        const marketData = await markets.actions.getMarkets();
-
-        const positionsWithValue = portfolio.positions.map(pos => {
-          const currentPrice = marketData.find(
-            (m: MarketData) => m.symbol === pos.symbol
-          )?.price || pos.entryPrice;
-          const value = pos.amount * currentPrice;
-          const pnl = value - (pos.amount * pos.entryPrice);
-
-          return { ...pos, currentPrice, value, pnl };
-        });
-
         const totalValue = portfolio.cash +
-          positionsWithValue.reduce((sum, p) => sum + p.value, 0);
+          portfolio.positions.reduce((sum, p) => sum + p.amount * p.entryPrice, 0);
 
         return {
-          cash: portfolio.cash,
-          positions: positionsWithValue,
-          totalValue,
-          totalPnL: totalValue - config.initialCash,
+          success: true,
+          data: {
+            cash: portfolio.cash,
+            positions: portfolio.positions,
+            totalValue,
+            totalPnL: totalValue - config.initialCash,
+          }
         };
       },
 
-      async buy(symbol: string, amountUsd: number) {
-        const markets = this.agent.getPlugin("markets");
-        const price = await markets.actions.getPrice(symbol);
-        if (!price) throw new Error("Symbol not found");
-
-        return this.executeBuy(symbol, price, this.context);
+      async buy(params: { symbol: string; price: number }, agent: Agent) {
+        return executeBuy(params.symbol, params.price);
       },
 
-      async sell(symbol: string) {
-        const markets = this.agent.getPlugin("markets");
-        const price = await markets.actions.getPrice(symbol);
-        if (!price) throw new Error("Symbol not found");
-
-        return this.executeSell(symbol, price, this.context);
+      async sell(params: { symbol: string; price: number }, agent: Agent) {
+        return executeSell(params.symbol, params.price);
       },
     },
   };
 }
 
-function analyzeForSignal(content: string): { symbol: string; direction: "buy" | "sell" } | null {
-  // Simple keyword analysis
-  const buySignals = ["bullish", "undervalued", "opportunity", "accumulate"];
-  const sellSignals = ["bearish", "overvalued", "risk", "take profit"];
-
-  const symbols = ["BTC", "ETH", "SOL"];
-
-  for (const symbol of symbols) {
-    if (content.toUpperCase().includes(symbol)) {
-      const isBuy = buySignals.some(s => content.toLowerCase().includes(s));
-      const isSell = sellSignals.some(s => content.toLowerCase().includes(s));
-
-      if (isBuy && !isSell) return { symbol, direction: "buy" };
-      if (isSell && !isBuy) return { symbol, direction: "sell" };
-    }
-  }
-
-  return null;
-}
 ```
 
 ### Complete Agent Setup
 
 ```typescript
-// convex/agent.ts
+// agent.ts
 import { Agent } from "@convex-agent/core";
+import { ConvexBackend } from "@convex-agent/core/backend";
 import { createMarketsPlugin } from "./plugins/markets";
 import { createPaperTradingPlugin } from "./plugins/paper-trading";
-import { newsPlugin } from "@clarkos/plugin-news";
+
+const backend = new ConvexBackend({
+  url: process.env.CONVEX_URL!,
+});
 
 export const tradingAgent = new Agent({
-  name: "trader",
-  description: "A thoughtful crypto trader that analyzes markets and makes paper trades",
-
-  model: "anthropic/claude-3.5-sonnet",
-  tickInterval: 15 * 60 * 1000,  // 15 minutes
-
-  initialState: {
-    mood: "contemplative",
-    health: 80,
-    volatility: 0.4,
-  },
-
+  backend,
   plugins: [
     createMarketsPlugin({
       symbols: ["bitcoin", "ethereum", "solana"],
       refreshMinutes: 5,
-    }),
-
-    newsPlugin({
-      sources: [
-        { name: "coindesk", url: "https://coindesk.com/rss" },
-        { name: "theblock", url: "https://theblock.co/rss" },
-      ],
-      keywords: ["bitcoin", "ethereum", "crypto", "defi"],
-      refreshIntervalMinutes: 10,
     }),
 
     createPaperTradingPlugin({
@@ -330,14 +234,11 @@ export const tradingAgent = new Agent({
   ],
 });
 
-// Event handlers
-tradingAgent.on("trade_executed", (data) => {
-  console.log(`Trade: ${data.action} ${data.amount} ${data.symbol} @ $${data.price}`);
-});
+// Execute a tick
+await tradingAgent.tick();
 
-tradingAgent.on("brilliantMoment", (thought) => {
-  console.log(`Market insight: ${thought.content}`);
-});
+// Or start automatic ticks
+tradingAgent.start();
 ```
 
 ## Running the Trading Agent

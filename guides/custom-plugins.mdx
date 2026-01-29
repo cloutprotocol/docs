@@ -3,91 +3,146 @@ title: "Building Custom Plugins"
 description: "Extend your agent with custom capabilities"
 ---
 
-Plugins are the primary way to extend ClarkOS agents with custom functionality. This guide covers everything you need to build production-ready plugins.
+Plugins are the primary way to extend ClarkOS agents. This guide covers building production-ready plugins.
 
-## Plugin Anatomy
+## Plugin Interface
 
-Every ClarkOS plugin implements a simple interface:
+Every plugin implements this interface:
 
 ```typescript
 interface Plugin {
-  // Required
   name: string;
   version: string;
-
-  // Optional metadata
   description?: string;
-  author?: string;
   dependencies?: string[];
 
-  // Lifecycle hooks
   init?(agent: Agent): void | Promise<void>;
   cleanup?(agent: Agent): void | Promise<void>;
-
-  // Execution hook
   onTick?(context: TickContext): void | Promise<void>;
 
-  // Custom actions
   actions?: Record<string, ActionHandler>;
+}
+
+type ActionHandler = (
+  params: Record<string, unknown>,
+  agent: Agent
+) => Promise<unknown>;
+```
+
+## Tick Context
+
+Your plugin receives context on each tick:
+
+```typescript
+interface TickContext {
+  state: AgentState;
+  memories: Memory[];
+  knowledge: Knowledge[];
+  recentLogs: Log[];
+}
+
+interface AgentState {
+  mood: "neutral" | "expressive" | "curious" | "excited" | "reflective" | "concerned";
+  health: number;      // 0-100
+  routine: "morning" | "day" | "evening" | "overnight";
+  volatility: number;  // 0-1
+  counters: { ticks: number; feeds: number };
+  lastTick: string | null;
+  cryo: boolean;
 }
 ```
 
-## Your First Plugin
-
-Let's build a simple logging plugin:
+## Basic Plugin
 
 ```typescript
-// plugins/logger.ts
-import { Plugin, TickContext } from "@convex-agent/core";
+import type { Plugin, TickContext } from "@convex-agent/core";
 
 export const loggerPlugin: Plugin = {
   name: "logger",
   version: "1.0.0",
-  description: "Logs all tick activity",
+  description: "Logs tick activity",
 
-  async onTick(context: TickContext) {
-    console.log(`[${new Date().toISOString()}] Tick completed`);
-    console.log(`  Mood: ${context.state.mood}`);
-    console.log(`  Health: ${context.state.health}`);
-    console.log(`  Summary: ${context.response.summary}`);
-  },
+  onTick(context: TickContext) {
+    console.log(`Tick - Mood: ${context.state.mood}, Health: ${context.state.health}`);
+    console.log(`Loaded ${context.memories.length} memories`);
+  }
 };
 ```
 
-Register it:
+## Plugin Factory Pattern
+
+For configurable plugins, use a factory function:
 
 ```typescript
-// convex/agent.ts
-import { Agent } from "@convex-agent/core";
-import { loggerPlugin } from "./plugins/logger";
+import type { Plugin, TickContext } from "@convex-agent/core";
+import type { Agent } from "@convex-agent/core";
 
-const agent = new Agent({
-  name: "my-agent",
-  plugins: [loggerPlugin],
-});
+interface AnalyticsConfig {
+  endpoint: string;
+  batchSize: number;
+}
+
+export function createAnalyticsPlugin(config: AnalyticsConfig): Plugin {
+  const events: unknown[] = [];
+
+  return {
+    name: "analytics",
+    version: "1.0.0",
+
+    init(agent: Agent) {
+      console.log(`Analytics plugin initialized, endpoint: ${config.endpoint}`);
+    },
+
+    onTick(context: TickContext) {
+      events.push({
+        type: "tick",
+        mood: context.state.mood,
+        health: context.state.health,
+        timestamp: Date.now()
+      });
+
+      if (events.length >= config.batchSize) {
+        this.flush();
+      }
+    },
+
+    cleanup(agent: Agent) {
+      this.flush();
+    },
+
+    flush() {
+      if (events.length === 0) return;
+      // Send to analytics endpoint
+      console.log(`Flushing ${events.length} events`);
+      events.length = 0;
+    },
+
+    actions: {
+      async getEventCount() {
+        return { success: true, count: events.length };
+      },
+
+      async flush() {
+        this.flush();
+        return { success: true };
+      }
+    }
+  };
+}
 ```
 
 ## Lifecycle Hooks
 
 ### init()
 
-Called once when the agent starts:
+Called when the agent starts:
 
 ```typescript
-export const databasePlugin: Plugin = {
-  name: "database",
-  version: "1.0.0",
-
-  async init(agent) {
-    // Set up database connection
-    this.db = await connectToDatabase();
-
-    // Register with agent
-    agent.setContext("db", this.db);
-
-    console.log("Database plugin initialized");
-  },
-};
+async init(agent: Agent) {
+  // Set up connections
+  this.db = await connectToDatabase();
+  console.log("Plugin initialized");
+}
 ```
 
 ### cleanup()
@@ -95,16 +150,10 @@ export const databasePlugin: Plugin = {
 Called when the agent shuts down:
 
 ```typescript
-export const databasePlugin: Plugin = {
-  name: "database",
-  version: "1.0.0",
-
-  async cleanup(agent) {
-    // Close connections
-    await this.db.close();
-    console.log("Database plugin cleaned up");
-  },
-};
+async cleanup(agent: Agent) {
+  await this.db.close();
+  console.log("Plugin cleaned up");
+}
 ```
 
 ### onTick()
@@ -112,159 +161,48 @@ export const databasePlugin: Plugin = {
 Called after every tick:
 
 ```typescript
-export const analyticsPlugin: Plugin = {
-  name: "analytics",
-  version: "1.0.0",
+onTick(context: TickContext) {
+  // React to state changes
+  if (context.state.mood === "expressive" && context.state.health > 50) {
+    // Agent is healthy and expressive - good time for output
+  }
 
-  async onTick(context: TickContext) {
-    // Track tick metrics
-    await this.trackEvent("tick", {
-      mood: context.state.mood,
-      health: context.state.health,
-      duration: context.tickDuration,
-      artifacts: context.artifacts.length,
-    });
-  },
-};
+  // Access memories
+  const recentEpisodic = context.memories.filter(m => m.type === "episodic");
+
+  // Check knowledge
+  const marketData = context.knowledge.filter(k => k.type === "market");
+}
 ```
 
-## Building a Twitter Plugin
+## Custom Actions
 
-Here's a complete Twitter plugin:
+Plugins expose actions for external invocation:
 
 ```typescript
-// plugins/twitter.ts
-import { Plugin, TickContext } from "@convex-agent/core";
-import { TwitterApi } from "twitter-api-v2";
+actions: {
+  async getData(params: { query: string }, agent: Agent) {
+    const results = await this.search(params.query);
+    return { success: true, data: results };
+  },
 
-interface TwitterConfig {
-  apiKey: string;
-  apiSecret: string;
-  accessToken: string;
-  accessSecret: string;
-  postThreshold: number;  // Min health to post
-  cooldownMs: number;     // Time between posts
+  async setConfig(params: { key: string; value: unknown }) {
+    this.config[params.key] = params.value;
+    return { success: true };
+  }
 }
+```
 
-export function createTwitterPlugin(config: TwitterConfig): Plugin {
-  let client: TwitterApi;
-  let lastPostTime = 0;
+Invoke actions:
 
-  return {
-    name: "twitter",
-    version: "1.0.0",
-    description: "Posts agent thoughts to Twitter",
-
-    async init(agent) {
-      client = new TwitterApi({
-        appKey: config.apiKey,
-        appSecret: config.apiSecret,
-        accessToken: config.accessToken,
-        accessSecret: config.accessSecret,
-      });
-
-      // Verify credentials
-      const me = await client.v2.me();
-      console.log(`Twitter plugin connected as @${me.data.username}`);
-    },
-
-    async onTick(context: TickContext) {
-      // Check if we should post
-      if (!this.shouldPost(context)) {
-        return;
-      }
-
-      // Get tweet content
-      const content = this.selectContent(context);
-      if (!content) {
-        return;
-      }
-
-      // Post tweet
-      try {
-        const tweet = await client.v2.tweet(content);
-        console.log(`Posted tweet: ${tweet.data.id}`);
-        lastPostTime = Date.now();
-
-        // Store as memory
-        await context.remember({
-          type: "episodic",
-          content: `Tweeted: "${content}"`,
-          importance: 0.6,
-          metadata: {
-            platform: "twitter",
-            tweetId: tweet.data.id,
-          },
-        });
-      } catch (error) {
-        console.error("Failed to post tweet:", error);
-      }
-    },
-
-    shouldPost(context: TickContext): boolean {
-      // Must be expressive mood
-      if (context.state.mood !== "expressive") {
-        return false;
-      }
-
-      // Must have sufficient health
-      if (context.state.health < config.postThreshold) {
-        return false;
-      }
-
-      // Must respect cooldown
-      if (Date.now() - lastPostTime < config.cooldownMs) {
-        return false;
-      }
-
-      return true;
-    },
-
-    selectContent(context: TickContext): string | null {
-      // Priority 1: Tweet artifacts from tick
-      const tweetArtifact = context.artifacts.find(a => a.type === "tweet");
-      if (tweetArtifact) {
-        return tweetArtifact.content;
-      }
-
-      // Priority 2: Brilliant thought
-      const thought = context.getRecentThought();
-      if (thought?.isBrilliant) {
-        return thought.content;
-      }
-
-      // Priority 3: Remark from tick response
-      if (context.response.remark) {
-        return context.response.remark;
-      }
-
-      return null;
-    },
-
-    // Custom actions
-    actions: {
-      async postTweet(content: string) {
-        const tweet = await client.v2.tweet(content);
-        return { success: true, tweetId: tweet.data.id };
-      },
-
-      async replyTo(tweetId: string, content: string) {
-        const reply = await client.v2.reply(content, tweetId);
-        return { success: true, replyId: reply.data.id };
-      },
-    },
-  };
-}
-
-// Usage:
-const twitterPlugin = createTwitterPlugin({
-  apiKey: process.env.TWITTER_API_KEY!,
-  apiSecret: process.env.TWITTER_API_SECRET!,
-  accessToken: process.env.TWITTER_ACCESS_TOKEN!,
-  accessSecret: process.env.TWITTER_ACCESS_SECRET!,
-  postThreshold: 50,
-  cooldownMs: 30 * 60 * 1000,  // 30 minutes
+```typescript
+// From code
+const result = await agent.executeAction("analytics", "getData", {
+  query: "recent events"
 });
+
+// Via HTTP
+// POST /actions/analytics/getData
 ```
 
 ## Plugin Dependencies
@@ -272,145 +210,67 @@ const twitterPlugin = createTwitterPlugin({
 Plugins can depend on other plugins:
 
 ```typescript
-export const analyticsTwitterPlugin: Plugin = {
-  name: "analytics-twitter",
+export const enhancedPlugin: Plugin = {
+  name: "enhanced",
   version: "1.0.0",
-  dependencies: ["twitter", "analytics"],
+  dependencies: ["analytics", "logger"],
 
-  async init(agent) {
-    // Get references to dependencies
-    const twitter = agent.getPlugin("twitter");
+  init(agent: Agent) {
     const analytics = agent.getPlugin("analytics");
+    const logger = agent.getPlugin("logger");
 
-    // Wrap Twitter's postTweet action
-    const originalPost = twitter.actions.postTweet;
-    twitter.actions.postTweet = async (content: string) => {
-      const result = await originalPost(content);
-      await analytics.track("tweet_posted", { content, ...result });
-      return result;
-    };
-  },
+    if (!analytics || !logger) {
+      throw new Error("Missing required dependencies");
+    }
+  }
 };
 ```
 
-## Tick Context
-
-The `TickContext` provides everything your plugin needs:
+## Registering Plugins
 
 ```typescript
-interface TickContext {
-  // Current state (after tick)
-  state: AgentState;
+import { Agent } from "@convex-agent/core";
+import { ConvexBackend } from "@convex-agent/core/backend";
+import { loggerPlugin } from "./plugins/logger";
+import { createAnalyticsPlugin } from "./plugins/analytics";
 
-  // LLM response from tick
-  response: TickResponse;
-
-  // Retrieved for this tick
-  memories: Memory[];
-  knowledge: KnowledgeItem[];
-
-  // Time of day
-  routine: "morning" | "day" | "evening" | "overnight";
-
-  // Outputs from tick
-  artifacts: Artifact[];
-
-  // Helpers
-  getRecentThought(): ConsciousThought | null;
-  shouldAct(): boolean;
-  getActionPriority(): number;
-
-  // Memory operations
-  remember(memory: NewMemory): Promise<string>;
-  recall(query: string, options?: RecallOptions): Promise<Memory[]>;
-
-  // Plugin communication
-  getPlugin(name: string): Plugin;
-  emit(event: string, data: any): void;
-}
-```
-
-## Custom Actions
-
-Plugins can expose actions for manual invocation:
-
-```typescript
-export const tradingPlugin: Plugin = {
-  name: "trading",
-  version: "1.0.0",
-
-  actions: {
-    async placeTrade(params: TradeParams) {
-      // Execute trade logic
-      return { orderId: "...", status: "filled" };
-    },
-
-    async getPortfolio() {
-      // Return current positions
-      return { positions: [...], totalValue: 10000 };
-    },
-
-    async cancelOrder(orderId: string) {
-      // Cancel pending order
-      return { success: true };
-    },
-  },
-};
-
-// Invoke from code:
-const result = await agent.action("trading.placeTrade", {
-  symbol: "ETH",
-  side: "buy",
-  amount: 100,
+const agent = new Agent({
+  backend: new ConvexBackend({ url: process.env.CONVEX_URL! }),
+  plugins: [
+    loggerPlugin,
+    createAnalyticsPlugin({
+      endpoint: "https://analytics.example.com",
+      batchSize: 100
+    })
+  ]
 });
 
-// Or via HTTP:
-// POST /actions/trading/placeTrade
+// Or add later
+agent.use(anotherPlugin);
 ```
 
 ## Error Handling
 
-Implement robust error handling:
+Handle errors gracefully:
 
 ```typescript
-export const robustPlugin: Plugin = {
-  name: "robust",
-  version: "1.0.0",
-
-  async onTick(context: TickContext) {
-    try {
-      await this.riskyOperation();
-    } catch (error) {
-      // Log error
-      console.error("Plugin error:", error);
-
-      // Optionally reduce agent health
-      await context.setState({
-        health: context.state.health - 2,
-      });
-
-      // Store as memory for learning
-      await context.remember({
-        type: "procedural",
-        content: `Error in robust plugin: ${error.message}`,
-        importance: 0.7,
-        metadata: { error: true },
-      });
-
-      // Don't re-throw - let agent continue
-    }
-  },
-};
+async onTick(context: TickContext) {
+  try {
+    await this.riskyOperation();
+  } catch (error) {
+    console.error("Plugin error:", error);
+    // Don't re-throw - let agent continue
+  }
+}
 ```
 
 ## Testing Plugins
 
-Create testable plugins:
+Use dependency injection:
 
 ```typescript
-// plugins/testable.ts
 export function createTestablePlugin(deps: {
-  httpClient: HttpClient;
+  http: HttpClient;
   logger: Logger;
 }): Plugin {
   return {
@@ -418,94 +278,37 @@ export function createTestablePlugin(deps: {
     version: "1.0.0",
 
     async onTick(context: TickContext) {
-      const data = await deps.httpClient.get("/api/data");
-      deps.logger.info("Fetched data", data);
-    },
+      const data = await deps.http.get("/api/data");
+      deps.logger.info("Fetched", data);
+    }
   };
 }
 
-// In tests:
-import { createTestablePlugin } from "./plugins/testable";
-
-test("testable plugin fetches data", async () => {
-  const mockHttp = { get: jest.fn().mockResolvedValue({ foo: "bar" }) };
-  const mockLogger = { info: jest.fn() };
-
-  const plugin = createTestablePlugin({
-    httpClient: mockHttp,
-    logger: mockLogger,
-  });
-
-  await plugin.onTick(mockContext);
-
-  expect(mockHttp.get).toHaveBeenCalledWith("/api/data");
-  expect(mockLogger.info).toHaveBeenCalled();
-});
-```
-
-## Plugin Configuration
-
-Support flexible configuration:
-
-```typescript
-interface PluginConfig {
-  enabled: boolean;
-  settings: Record<string, any>;
-}
-
-export function createConfigurablePlugin(config: PluginConfig): Plugin {
-  return {
-    name: "configurable",
-    version: "1.0.0",
-
-    async onTick(context: TickContext) {
-      if (!config.enabled) {
-        return;
-      }
-
-      // Use config.settings...
-    },
-  };
-}
-
-// Support runtime reconfiguration
-agent.updatePluginConfig("configurable", {
-  enabled: true,
-  settings: { newSetting: "value" },
-});
+// In tests
+const mockHttp = { get: jest.fn().mockResolvedValue({ foo: "bar" }) };
+const mockLogger = { info: jest.fn() };
+const plugin = createTestablePlugin({ http: mockHttp, logger: mockLogger });
 ```
 
 ## Best Practices
 
-<AccordionGroup>
-  <Accordion title="Keep plugins focused">
-    One plugin = one responsibility. Don't build mega-plugins.
-  </Accordion>
+**Keep plugins focused** - One plugin, one responsibility.
 
-  <Accordion title="Handle failures gracefully">
-    Never let plugin errors crash the agent. Log, recover, continue.
-  </Accordion>
+**Handle failures gracefully** - Never let plugin errors crash the agent.
 
-  <Accordion title="Respect rate limits">
-    Track API usage and implement cooldowns for external services.
-  </Accordion>
+**Respect rate limits** - Track API usage, implement cooldowns.
 
-  <Accordion title="Make plugins configurable">
-    Use factory functions with config objects, not hardcoded values.
-  </Accordion>
+**Make plugins configurable** - Use factory functions with config objects.
 
-  <Accordion title="Write tests">
-    Use dependency injection to make plugins testable.
-  </Accordion>
-</AccordionGroup>
+**Write tests** - Use dependency injection for testability.
 
 ## Next Steps
 
 <CardGroup cols={2}>
-  <Card title="Official Plugins" icon="check" href="/plugins/official">
-    See available official plugins.
+  <Card title="Official Plugins" href="/plugins/official">
+    Available official plugins
   </Card>
-  <Card title="Plugin Registry" icon="box" href="/plugins/community">
-    Browse community plugins.
+  <Card title="Examples" href="/examples/basic-agent">
+    Complete agent implementations
   </Card>
 </CardGroup>

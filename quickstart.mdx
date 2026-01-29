@@ -18,33 +18,42 @@ Before you begin, make sure you have:
 ## Create Your Agent
 
 <Steps>
-  <Step title="Initialize the project">
-    Run our CLI to scaffold a new agent project:
+  <Step title="Clone the template">
+    Clone the ClarkOS template repository:
 
     ```bash
-    npx create-clarkos-agent my-first-agent
+    git clone https://github.com/cloutprotocol/clarkos my-first-agent
+    cd my-first-agent
     ```
 
-    This creates a fully-configured project with:
+    This gives you a fully-configured project with:
     - Convex backend setup
     - TypeScript configuration
     - Example plugins
     - Development scripts
   </Step>
 
-  <Step title="Configure your environment">
-    Navigate to your project and set up your environment:
+  <Step title="Install dependencies">
+    Install the required packages:
 
     ```bash
-    cd my-first-agent
+    npm install
+    ```
+  </Step>
+
+  <Step title="Configure your environment">
+    Set up your environment variables:
+
+    ```bash
     cp .env.example .env.local
     ```
 
     Edit `.env.local` with your API keys:
 
     ```bash
+    NEXT_PUBLIC_CONVEX_URL=your-convex-url
     OPENROUTER_KEY=your-openrouter-key
-    GEMINI_API_KEY=your-gemini-key  # For embeddings
+    TICK_TOKEN=your-tick-token
     ```
   </Step>
 
@@ -55,11 +64,10 @@ Before you begin, make sure you have:
     npm run dev
     ```
 
-    Your agent is now running at `http://localhost:3000` with:
+    This runs both Convex and Next.js. Your agent is now running with:
     - Real-time state updates
-    - Automatic tick execution
-    - Memory persistence
     - HTTP API endpoints
+    - Memory persistence
   </Step>
 </Steps>
 
@@ -106,19 +114,21 @@ Your agent exposes several HTTP endpoints:
 Extend your agent with a plugin:
 
 ```typescript
-// plugins/twitter.ts
-import { Plugin } from "@convex-agent/core";
+// plugins/logger.ts
+import type { Plugin } from "@convex-agent/core";
 
-export const twitterPlugin: Plugin = {
-  name: "twitter",
+export const loggerPlugin: Plugin = {
+  name: "logger",
   version: "1.0.0",
+  description: "Logs tick activity",
 
-  async onTick(context) {
-    // Check if agent should tweet
-    if (context.state.mood === "expressive") {
-      const thought = context.getRecentThought();
-      await this.postTweet(thought.content);
-    }
+  init(agent) {
+    console.log("Logger plugin initialized");
+  },
+
+  onTick(context) {
+    console.log(`Tick executed. Mood: ${context.state.mood}, Health: ${context.state.health}`);
+    console.log(`Memories loaded: ${context.memories.length}`);
   }
 };
 ```
@@ -126,14 +136,17 @@ export const twitterPlugin: Plugin = {
 Register it in your agent:
 
 ```typescript
-// convex/agent.ts
 import { Agent } from "@convex-agent/core";
-import { twitterPlugin } from "./plugins/twitter";
+import { ConvexBackend } from "@convex-agent/core/backend";
+import { loggerPlugin } from "./plugins/logger";
 
 const agent = new Agent({
-  name: "my-agent",
-  plugins: [twitterPlugin]
+  backend: new ConvexBackend({ url: process.env.CONVEX_URL! }),
+  plugins: [loggerPlugin]
 });
+
+// Execute a tick
+await agent.tick();
 ```
 
 ## Deploy to Production

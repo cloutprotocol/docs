@@ -5,136 +5,78 @@ description: "Multi-layered cognitive memory inspired by human psychology"
 
 ## Overview
 
-ClarkOS's memory system is one of its most powerful features. Unlike simple key-value storage, ClarkOS implements a **cognitive psychology-inspired** memory architecture with:
-
-- **5 distinct memory types** for different kinds of knowledge
-- **Vector embeddings** for semantic similarity search
-- **Automatic deduplication** with type-specific thresholds
-- **Memory consolidation** that forms core knowledge over time
-- **Bidirectional linking** between related memories
-- **Self-reflection** for metacognitive insights
+ClarkOS implements a cognitive psychology-inspired memory architecture that goes beyond simple storage. The system features multiple memory types, vector embeddings for semantic search, automatic deduplication, memory consolidation, bidirectional linking, and self-reflection capabilities.
 
 ## Memory Types
 
-<CardGroup cols={2}>
-  <Card title="Episodic" icon="calendar">
-    **Specific events and experiences**
+ClarkOS supports five distinct memory types:
 
-    "Met Alice at the hackathon. She's building a DeFi protocol."
-  </Card>
-  <Card title="Semantic" icon="book">
-    **Facts and concepts**
+| Type | Purpose | Example |
+|------|---------|---------|
+| **Episodic** | Specific events and experiences | "Met Alice at the hackathon" |
+| **Semantic** | Facts and concepts | "Ethereum uses proof-of-stake" |
+| **Emotional** | Feelings about topics | "Excited about AI agents" |
+| **Procedural** | Learned patterns and behaviors | "When market drops, users want reassurance" |
+| **Reflection** | Self-reflective insights | "I notice I'm more creative in the evening" |
 
-    "Ethereum uses proof-of-stake consensus."
-  </Card>
-  <Card title="Emotional" icon="heart">
-    **Feelings about topics**
-
-    "Excited about the potential of AI agents."
-  </Card>
-  <Card title="Procedural" icon="gears">
-    **Learned patterns and behaviors**
-
-    "When market drops 5%, users want reassurance."
-  </Card>
-</CardGroup>
-
-<Card title="Reflection" icon="lightbulb">
-  **Self-reflective insights (ClarkOS exclusive)**
-
-  "I notice I'm more creative in the evening routine."
-</Card>
+The reflection type is unique to ClarkOS and enables metacognitive capabilities.
 
 ## Memory Structure
 
-Every memory contains:
+Every memory contains rich metadata:
 
 ```typescript
 interface Memory {
-  // Core content
-  type: MemoryType;
+  id?: string;
+  ts: string;
   content: string;
+  type: MemoryType;
+  scope: "short_term" | "working" | "long_term";
 
-  // Vector embedding (768 dimensions)
-  embedding: number[];
+  // Vector embedding for semantic search
+  embedding?: number[];
+  embeddingModel?: string;
 
-  // Scoring
-  importance: number;      // How significant (0-1)
-  salience: number;        // How attention-grabbing (0-1)
-  confidence: number;      // How reliable (0-1)
+  // Emotional metadata
+  sentiment: number;           // -1 to 1
+  valence: "positive" | "negative" | "neutral" | "mixed";
+  emotionalIntensity: number;  // 0 to 1
 
-  // Sentiment analysis
-  sentiment: {
-    score: number;         // -1 to 1
-    label: "positive" | "negative" | "neutral";
-  };
-
-  // Rich metadata
-  metadata: {
-    context?: string;      // Situation when formed
-    mood?: string;         // Agent mood at creation
-    routine?: string;      // Time of day
-    trigger?: string;      // What caused this memory
-    entities?: string[];   // People, places, things
-    source?: string;       // Origin (tick, feed, user)
-  };
-
-  // Timestamps
-  createdAt: number;
+  // Importance and access tracking
+  importance: number;          // 0 to 1, decays over time
+  accessCount: number;         // Strengthens with use
   lastAccessedAt: number;
 
-  // Deduplication
-  unique: boolean;         // Passed dedup check
-  version: number;         // Update tracking
+  // Associations
+  tags: string[];
+  linkedMemoryIds: string[];
+  sourceType: string;          // "news", "market", "user", "self"
+  sourceId?: string;
+
+  // Consolidation tracking
+  isConsolidated: boolean;
+  consolidatedIntoId?: string;
+
+  // Enhanced fields
+  unique?: boolean;            // Passed deduplication check
+  salience?: number;           // How attention-grabbing (0-1)
+  confidence?: number;         // How reliable (0-1)
+  version?: number;            // Update tracking
+
+  // Rich context
+  metadata?: {
+    context?: string;
+    mood?: string;
+    routine?: string;
+    triggerMemoryId?: string;
+    relatedEntities?: string[];
+  };
 }
 ```
 
-## Storing Memories
+## Deduplication
 
-### Basic Storage
-
-```typescript
-await agent.remember({
-  type: "episodic",
-  content: "Discovered a new meme coin called $DOGE2",
-  importance: 0.6,
-});
-```
-
-### With Full Metadata
-
-```typescript
-await agent.remember({
-  type: "semantic",
-  content: "Layer 2 solutions reduce gas fees by batching transactions",
-  importance: 0.8,
-  salience: 0.7,
-  confidence: 0.95,
-  metadata: {
-    context: "Reading crypto news",
-    entities: ["Layer 2", "gas fees", "Ethereum"],
-    source: "coindesk",
-  },
-});
-```
-
-### With Automatic Deduplication
-
-```typescript
-// Uses type-specific thresholds
-const result = await agent.rememberWithDedup({
-  type: "episodic",
-  content: "Met Alice at the hackathon",
-});
-
-if (result.deduplicated) {
-  console.log("Similar memory exists:", result.existingId);
-}
-```
-
-## Deduplication Thresholds
-
-Different memory types have different similarity thresholds:
+ClarkOS uses type-specific similarity thresholds for deduplication:
 
 | Type | Threshold | Rationale |
 |------|-----------|-----------|
@@ -144,192 +86,137 @@ Different memory types have different similarity thresholds:
 | Procedural | 0.90 | Patterns need precision |
 | Reflection | 0.95 | Self-insights should be unique |
 
-This is a key improvement over ElizaOS which uses a flat 0.95 threshold for all types.
-
-## Retrieving Memories
-
-### Semantic Search
-
 ```typescript
-// Find relevant memories by meaning
-const memories = await agent.recall("Ethereum scaling", {
-  limit: 10,
-  threshold: 0.7,  // Minimum similarity
+// Store with deduplication
+const result = await memories.storeWithDedup({
+  type: "episodic",
+  content: "Met Alice at the hackathon",
+  importance: 0.7
 });
-```
 
-### Filtered Retrieval
-
-```typescript
-// Get recent emotional memories
-const emotions = await agent.recall("market sentiment", {
-  type: "emotional",
-  limit: 5,
-  recency: "24h",
-});
-```
-
-### Context Building
-
-```typescript
-// Build context for LLM prompt
-const context = await agent.buildContext({
-  query: "current market conditions",
-  maxTokens: 2000,
-  includeTypes: ["semantic", "emotional"],
-});
+if (result.deduplicated) {
+  console.log("Similar memory exists:", result.existingId);
+}
 ```
 
 ## Memory Linking
 
-ClarkOS supports bidirectional links between memories:
+Memories can be linked with bidirectional relationships:
 
-### Link Types
-
-| Type | Description | Example |
-|------|-------------|---------|
-| `caused_by` | Causal relationship | "Fear caused by market crash" |
-| `related_to` | General association | "Both about Ethereum" |
-| `contradicts` | Conflicting information | "Bull vs bear sentiment" |
-| `elaborates` | Adds detail | "More info on same topic" |
-| `supersedes` | Replaces old info | "Updated price data" |
-| `temporal_before` | Time sequence | "Happened before" |
-| `temporal_after` | Time sequence | "Happened after" |
-
-### Creating Links
+| Link Type | Description |
+|-----------|-------------|
+| `caused_by` | Causal relationship |
+| `related_to` | Semantic similarity |
+| `contradicts` | Conflicting information |
+| `elaborates` | Provides more detail |
+| `supersedes` | Replaces/updates |
+| `temporal_before` | Happened before |
+| `temporal_after` | Happened after |
 
 ```typescript
 // Automatic link detection
-await agent.detectLinks(memoryId);
-
-// Manual linking
-await agent.linkMemories({
-  sourceId: memory1Id,
-  targetId: memory2Id,
-  linkType: "caused_by",
-  strength: 0.9,
+const links = detectPotentialLinks(newMemory, existingMemories, {
+  minSimilarity: 0.7,
+  maxLinks: 5,
+  detectContradictions: true
 });
-```
 
-### Following Links
-
-```typescript
 // Get memory with all its links
-const linked = await agent.getLinkedMemory(memoryId);
-
-console.log(linked.memory);
-console.log(linked.links);     // Outgoing links
-console.log(linked.backlinks); // Incoming links
+const linked = getLinkedMemories(memoryId, memories, links, {
+  direction: "both"
+});
 ```
 
 ## Memory Consolidation
 
-Over time, related memories consolidate into **core memories**:
-
-```typescript
-// Run consolidation (usually automatic)
-await agent.consolidate();
-```
-
-### Core Memory Structure
+Over time, related memories consolidate into core memories:
 
 ```typescript
 interface CoreMemory {
-  theme: string;           // Central topic
-  memories: string[];      // Contributing memory IDs
-  summary: string;         // Consolidated knowledge
-  confidence: number;      // How established
-  lastReinforced: number;  // Last update time
+  theme: string;              // Central topic
+  summary: string;            // Consolidated knowledge
+  insights: string[];         // Key takeaways
+  sourceMemoryIds: string[];  // Contributing memories
+  importance: number;
+  timespan: {
+    earliest: number;
+    latest: number;
+  };
 }
 ```
 
-### Consolidation Process
-
-1. **Clustering**: Group similar memories by embedding
-2. **Theme Extraction**: Identify common topics
-3. **Summary Generation**: Create consolidated knowledge
-4. **Importance Decay**: Reduce weight of old memories
-5. **Core Formation**: Create or update core memories
+The consolidation process:
+1. **Clustering** - Group similar memories by embedding
+2. **Theme Extraction** - Identify common topics
+3. **Summary Generation** - Create consolidated knowledge
+4. **Importance Decay** - Reduce weight of old memories
+5. **Core Formation** - Create or update core memories
 
 ## Self-Reflection
 
-ClarkOS agents can generate metacognitive insights:
+ClarkOS can generate metacognitive insights from memory patterns:
 
 ```typescript
-// Generate reflection on recent activity
-const reflection = await agent.reflect();
+const reflection = generateSelfReflection(memories, coreMemories, associations);
 
-// Output example:
+// Returns:
 // {
-//   type: "reflection",
-//   content: "I notice I engage more with technical content in the morning",
-//   reflectionType: "behavioral",
-//   confidence: 0.85
+//   reflections: [...],  // Individual reflections
+//   overallInsight: "...",
+//   memoryDraft: { type: "reflection", content: "...", ... }
 // }
 ```
 
-### Reflection Types
+Reflection types:
+- **Emotional** - Patterns in feelings
+- **Knowledge** - What's been learned
+- **Behavioral** - Activity patterns
+- **Growth** - How things are changing
 
-- **Emotional**: How I feel about recent events
-- **Knowledge**: What I've learned
-- **Behavioral**: Patterns in my actions
-- **Growth**: How I'm changing over time
+## REST API
 
-## Memory Statistics
+```bash
+# List memories
+GET /memories?type=episodic&limit=10
 
-Monitor your agent's memory system:
+# Get core memories
+GET /memories/core
 
-```typescript
-const stats = await agent.getMemoryStats();
+# Store a memory
+POST /memories/store
+{
+  "type": "semantic",
+  "content": "Layer 2 solutions reduce gas fees",
+  "importance": 0.8
+}
 
-// {
-//   total: 1523,
-//   byType: {
-//     episodic: 450,
-//     semantic: 380,
-//     emotional: 290,
-//     procedural: 203,
-//     reflection: 200
-//   },
-//   coreMemories: 45,
-//   avgImportance: 0.62,
-//   avgConfidence: 0.78,
-//   linkCount: 890,
-//   lastConsolidation: 1706400000000
-// }
+# Store with deduplication
+POST /memories/store-dedup
+
+# Run consolidation
+POST /memories/consolidate
+
+# Generate self-reflection
+POST /memories/reflect
+
+# Get memory with links
+GET /memories/linked?id=...
 ```
 
-## Best Practices
+## SDK Status
 
-<AccordionGroup>
-  <Accordion title="Set appropriate importance scores">
-    - **0.9-1.0**: Critical, life-changing events
-    - **0.7-0.8**: Significant interactions or learnings
-    - **0.5-0.6**: Normal daily events
-    - **0.3-0.4**: Minor observations
-    - **0.1-0.2**: Background noise
-  </Accordion>
+Current SDK implementation:
+- 3 memory types (episodic, semantic, procedural)
+- Basic memory storage and retrieval
+- Memory store interface
 
-  <Accordion title="Use metadata effectively">
-    Rich metadata enables better retrieval:
-    - Always include `entities` for key people/things
-    - Set `context` for situational awareness
-    - Track `source` for credibility assessment
-  </Accordion>
-
-  <Accordion title="Run consolidation regularly">
-    - Every 6 hours for active agents
-    - Daily for less active agents
-    - After major events or learning sessions
-  </Accordion>
-
-  <Accordion title="Monitor memory growth">
-    Set alerts for:
-    - Total memories exceeding threshold
-    - Low deduplication rate (memory spam)
-    - Consolidation failures
-  </Accordion>
-</AccordionGroup>
+Expanding to include:
+- Emotional and reflection memory types
+- Vector embeddings and semantic search
+- Bidirectional linking
+- Consolidation engine
+- Self-reflection generation
+- Type-specific deduplication
 
 ## Next Steps
 
@@ -337,7 +224,7 @@ const stats = await agent.getMemoryStats();
   <Card title="Consciousness" icon="lightbulb" href="/concepts/consciousness">
     How memories become thoughts.
   </Card>
-  <Card title="Memory Management Guide" icon="database" href="/guides/memory-management">
-    Advanced memory operations.
+  <Card title="Tick System" icon="clock" href="/concepts/tick-system">
+    How memories integrate with execution.
   </Card>
 </CardGroup>
