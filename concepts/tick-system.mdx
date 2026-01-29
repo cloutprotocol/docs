@@ -276,32 +276,31 @@ await ctx.runAction(api.tick.runTick);
 
 ## Tick Context
 
-The `TickContext` passed to plugins contains everything about the current tick:
+The `TickContext` passed to plugins contains:
 
 ```typescript
 interface TickContext {
-  // Current state after update
+  // Current agent state
   state: AgentState;
 
-  // LLM response
-  response: TickResponse;
-
-  // Retrieved memories
+  // Retrieved memories for this tick
   memories: Memory[];
 
-  // Retrieved knowledge
-  knowledge: KnowledgeItem[];
+  // Retrieved knowledge items
+  knowledge: Knowledge[];
 
-  // Current routine
+  // Recent activity logs
+  recentLogs: Log[];
+}
+
+interface AgentState {
+  mood: Mood;
+  health: number;
   routine: Routine;
-
-  // Artifacts generated
-  artifacts: Artifact[];
-
-  // Helper methods
-  getRecentThought(): ConsciousThought | null;
-  shouldAct(): boolean;
-  getActionPriority(): number;
+  volatility: number;
+  counters: { ticks: number; feeds: number };
+  lastTick: string | null;
+  cryo: boolean;
 }
 ```
 

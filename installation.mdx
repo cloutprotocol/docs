@@ -1,26 +1,28 @@
 ---
 title: "Installation"
-description: "Multiple ways to install and set up ClarkOS"
+description: "Set up ClarkOS in your project"
 ---
 
-## Quick Install
+## Clone the Template
 
-The fastest way to get started is with our CLI:
+The fastest way to get started:
 
 ```bash
-npx create-clarkos-agent my-agent
+git clone https://github.com/cloutprotocol/clarkos my-agent
+cd my-agent
+npm install
 ```
 
-This scaffolds a complete project with all dependencies configured.
+This gives you a complete project with Convex backend, Next.js frontend, and all dependencies configured.
 
 ## Manual Installation
 
 For existing projects or custom setups:
 
 <Steps>
-  <Step title="Install core packages">
+  <Step title="Install packages">
     ```bash
-    npm install @convex-agent/core convex
+    npm install convex
     ```
   </Step>
 
@@ -32,7 +34,7 @@ For existing projects or custom setups:
     This creates the `convex/` directory for your backend functions.
   </Step>
 
-  <Step title="Add ClarkOS schema">
+  <Step title="Add schema">
     Create `convex/schema.ts`:
 
     ```typescript
@@ -62,62 +64,33 @@ For existing projects or custom setups:
 
       // Memory system
       memories: defineTable({
-        type: v.union(
-          v.literal("episodic"),
-          v.literal("semantic"),
-          v.literal("emotional"),
-          v.literal("procedural"),
-          v.literal("reflection")
-        ),
+        type: v.string(),
         content: v.string(),
-        embedding: v.array(v.float64()),
+        embedding: v.optional(v.array(v.float64())),
         importance: v.number(),
-        salience: v.number(),
-        confidence: v.number(),
-        sentiment: v.object({
-          score: v.number(),
-          label: v.string(),
-        }),
-        metadata: v.any(),
         createdAt: v.number(),
-        lastAccessedAt: v.number(),
       })
         .index("by_type", ["type"])
-        .index("by_importance", ["importance"])
-        .vectorIndex("by_embedding", {
-          vectorField: "embedding",
-          dimensions: 768,
-        }),
+        .index("by_importance", ["importance"]),
     });
     ```
   </Step>
 
-  <Step title="Create agent configuration">
-    Create `convex/agent.ts`:
-
-    ```typescript
-    import { Agent } from "@convex-agent/core";
-
-    export const agent = new Agent({
-      name: "my-agent",
-      description: "A helpful autonomous agent",
-      model: "anthropic/claude-3.5-sonnet",
-      tickInterval: 300000, // 5 minutes
-    });
-    ```
+  <Step title="Create tick function">
+    Create `convex/tick.ts` with your agent's execution logic. See the [basic agent example](/examples/basic-agent) for a complete implementation.
   </Step>
 </Steps>
 
 ## Environment Variables
 
-Create `.env.local` with the following:
+Create `.env.local`:
 
 ```bash
 # Required
 NEXT_PUBLIC_CONVEX_URL=your-convex-deployment-url
 OPENROUTER_KEY=your-openrouter-api-key
 
-# Optional but recommended
+# Optional
 GEMINI_API_KEY=your-gemini-key  # For embeddings
 TICK_TOKEN=secure-random-token  # Auth for tick endpoint
 WRITE_TOKEN=secure-random-token # Auth for write operations
@@ -125,46 +98,26 @@ WRITE_TOKEN=secure-random-token # Auth for write operations
 
 ### Getting API Keys
 
-<AccordionGroup>
-  <Accordion title="Convex URL">
-    Run `npx convex dev` and copy the deployment URL from the output.
-  </Accordion>
+**Convex URL** - Run `npx convex dev` and copy the deployment URL.
 
-  <Accordion title="OpenRouter Key">
-    1. Go to [openrouter.ai](https://openrouter.ai)
-    2. Sign up for a free account
-    3. Navigate to API Keys and create a new key
-  </Accordion>
+**OpenRouter Key** - Sign up at [openrouter.ai](https://openrouter.ai) and create an API key.
 
-  <Accordion title="Gemini API Key">
-    1. Go to [Google AI Studio](https://aistudio.google.com)
-    2. Create a new API key
-    3. This is used for generating embeddings (768 dimensions)
-  </Accordion>
-</AccordionGroup>
+**Gemini API Key** - Create at [Google AI Studio](https://aistudio.google.com) for embeddings.
 
 ## Project Structure
 
-After installation, your project will look like:
-
 ```
 my-agent/
-├── app/                    # Next.js frontend (optional)
+├── app/                    # Next.js frontend
 │   ├── page.tsx
 │   └── layout.tsx
 ├── convex/                 # Convex backend
-│   ├── _generated/         # Auto-generated (don't edit)
+│   ├── _generated/         # Auto-generated
 │   ├── schema.ts           # Database schema
-│   ├── agent.ts            # Agent configuration
 │   ├── tick.ts             # Tick execution
 │   ├── http.ts             # HTTP endpoints
-│   └── memory/             # Memory system
-│       ├── index.ts
-│       ├── embeddings.ts
-│       └── retrieval.ts
-├── plugins/                # Custom plugins
+│   └── memory/             # Memory functions
 ├── .env.local              # Environment variables
-├── convex.json             # Convex configuration
 └── package.json
 ```
 
@@ -176,54 +129,20 @@ Start the development server:
 npm run dev
 ```
 
-Check that everything is working:
+Check the health endpoint:
 
 ```bash
-# Health check
 curl http://localhost:3001/health
-
-# Should return:
-# {"status":"ok","model":"anthropic/claude-3.5-sonnet","lastTick":null}
-```
-
-## Docker Installation
-
-For containerized deployments:
-
-```dockerfile
-FROM node:18-alpine
-
-WORKDIR /app
-COPY package*.json ./
-RUN npm ci
-
-COPY . .
-RUN npm run build
-
-ENV NODE_ENV=production
-CMD ["npm", "start"]
-```
-
-```yaml
-# docker-compose.yml
-version: '3.8'
-services:
-  agent:
-    build: .
-    ports:
-      - "3000:3000"
-    environment:
-      - NEXT_PUBLIC_CONVEX_URL=${CONVEX_URL}
-      - OPENROUTER_KEY=${OPENROUTER_KEY}
+# {"status":"ok"}
 ```
 
 ## Next Steps
 
 <CardGroup cols={2}>
-  <Card title="Quickstart" icon="rocket" href="/quickstart">
-    Build and run your first agent.
+  <Card title="Quickstart" href="/quickstart">
+    Build your first agent
   </Card>
-  <Card title="Core Concepts" icon="book" href="/concepts/agents">
-    Understand the architecture.
+  <Card title="Core Concepts" href="/concepts/agents">
+    Understand the architecture
   </Card>
 </CardGroup>

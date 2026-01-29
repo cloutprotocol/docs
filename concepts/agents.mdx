@@ -1,11 +1,11 @@
 ---
 title: "Agents"
-description: "Understanding ClarkOS's autonomous agent architecture"
+description: "Understanding ClarkOS agent architecture"
 ---
 
-## What is an ClarkOS Agent?
+## What is a ClarkOS Agent?
 
-An ClarkOS agent is an autonomous AI entity that:
+A ClarkOS agent is an autonomous AI entity that:
 
 - **Thinks continuously** through a tick-based execution model
 - **Remembers everything** with a multi-layered memory system
@@ -16,19 +16,9 @@ Unlike simple chatbots that respond to prompts, ClarkOS agents have persistent s
 
 ## Agent Lifecycle
 
-```mermaid
-graph TD
-    A[Initialize] --> B[Load State]
-    B --> C[Gather Context]
-    C --> D[Process with LLM]
-    D --> E[Update State]
-    E --> F[Store Memories]
-    F --> G[Execute Actions]
-    G --> H[Sleep]
-    H --> B
 ```
-
-Every ClarkOS agent follows this lifecycle:
+Initialize → Load State → Gather Context → Process → Update State → Store Memories → Execute Actions → Sleep → Repeat
+```
 
 1. **Initialize** - Load configuration and plugins
 2. **Load State** - Retrieve current mood, health, routine
@@ -36,138 +26,83 @@ Every ClarkOS agent follows this lifecycle:
 4. **Process** - Send context to LLM for processing
 5. **Update State** - Apply mood/health changes atomically
 6. **Store Memories** - Create new memories from the tick
-7. **Execute Actions** - Run plugin actions (tweet, trade, etc.)
+7. **Execute Actions** - Run plugin actions
 8. **Sleep** - Wait for next tick interval
 
 ## Agent State
 
-Every agent maintains a core state object:
+Every agent maintains core state:
 
 ```typescript
 interface AgentState {
-  // Emotional state
-  mood: "catatonic" | "contemplative" | "expressive" | "chaotic";
-
-  // Physical state (0-100)
-  health: number;
-
-  // Time-based routine
+  mood: "neutral" | "expressive" | "curious" | "excited" | "reflective" | "concerned";
+  health: number;      // 0-100
   routine: "morning" | "day" | "evening" | "overnight";
-
-  // Behavioral variance (0-1)
-  volatility: number;
-
-  // Current summary
-  summary: string;
-
-  // Last update timestamp
-  updatedAt: number;
+  volatility: number;  // 0-1, behavioral variance
+  counters: {
+    ticks: number;
+    feeds: number;
+  };
+  lastTick: string | null;
+  cryo: boolean;       // Hibernation mode
 }
 ```
 
 ### Mood System
 
-Moods affect how your agent processes information and acts:
+Moods affect how your agent processes and acts:
 
 | Mood | Description | Behavior |
 |------|-------------|----------|
-| `catatonic` | Withdrawn, minimal | Short responses, no actions |
-| `contemplative` | Thoughtful, introspective | Deep analysis, reflection |
-| `expressive` | Outgoing, creative | Active posting, engagement |
-| `chaotic` | Unpredictable, energetic | Experimental, surprising |
+| `neutral` | Balanced | Standard processing |
+| `expressive` | Outgoing | Active engagement |
+| `curious` | Inquisitive | Research, exploration |
+| `excited` | High energy | Enthusiastic responses |
+| `reflective` | Thoughtful | Deep analysis |
+| `concerned` | Cautious | Risk awareness |
 
 ### Health System
 
-Health represents the agent's overall well-being:
+Health represents the agent's well-being:
 
-- **100**: Peak performance, full capabilities
-- **75**: Target equilibrium (mean reversion point)
-- **50**: Degraded, reduced activity
+- **100**: Peak performance
+- **75**: Target equilibrium
+- **50**: Degraded activity
 - **25**: Minimal function
 - **0**: Hibernation mode
 
-Health naturally drifts based on routine:
-- Morning: Slow recovery
+Health drifts based on routine:
+- Morning: +2 recovery
 - Day: Stable
-- Evening: Gradual decline
-- Overnight: Hibernation risk
+- Evening: -1 decline
+- Overnight: -3 hibernation risk
 
 ## Creating an Agent
 
-Basic agent configuration:
+Using the SDK:
 
 ```typescript
 import { Agent } from "@convex-agent/core";
+import { ConvexBackend } from "@convex-agent/core/backend";
 
 const agent = new Agent({
-  // Required
-  name: "sage",
-
-  // Optional with defaults
-  description: "A wise and thoughtful agent",
-  model: "anthropic/claude-3.5-sonnet",
-  tickInterval: 300000, // 5 minutes
-
-  // Initial state
-  initialState: {
-    mood: "contemplative",
-    health: 75,
-    volatility: 0.3,
-  },
-
-  // Plugins
-  plugins: [],
+  backend: new ConvexBackend({
+    url: process.env.CONVEX_URL!
+  }),
+  plugins: []
 });
-```
 
-## Agent Configuration
+// Execute a tick
+await agent.tick();
 
-### Full Configuration Options
+// Start automatic execution
+agent.start();
 
-```typescript
-interface AgentConfig {
-  // Identity
-  name: string;
-  description?: string;
-  avatar?: string;
+// Stop execution
+agent.stop();
 
-  // LLM Settings
-  model: string;
-  temperature?: number;
-  maxTokens?: number;
-
-  // Timing
-  tickInterval: number;
-  tickTimeout?: number;
-
-  // State
-  initialState?: Partial<AgentState>;
-
-  // Memory
-  memoryConfig?: {
-    maxMemories?: number;
-    consolidationInterval?: number;
-    embeddingModel?: string;
-  };
-
-  // Plugins
-  plugins?: Plugin[];
-
-  // Hooks
-  onTick?: (context: TickContext) => void;
-  onStateChange?: (state: AgentState) => void;
-  onError?: (error: Error) => void;
-}
-```
-
-### Environment-Based Configuration
-
-```typescript
-const agent = new Agent({
-  name: process.env.AGENT_NAME || "default",
-  model: process.env.MODEL_ID || "anthropic/claude-3.5-sonnet",
-  tickInterval: parseInt(process.env.TICK_INTERVAL || "300000"),
-});
+// Get current state
+const state = await agent.getState();
 ```
 
 ## Agent Methods
@@ -175,113 +110,109 @@ const agent = new Agent({
 ### Core Methods
 
 ```typescript
-// Start the agent
-await agent.start();
+// Start automatic tick execution
+agent.start();
 
-// Stop the agent
-await agent.stop();
+// Stop automatic tick execution
+agent.stop();
 
-// Manual tick execution
+// Execute a single tick
 await agent.tick();
 
 // Get current state
 const state = await agent.getState();
 
-// Update state
-await agent.setState({ mood: "expressive" });
-```
-
-### Memory Methods
-
-```typescript
-// Store a memory
-await agent.remember({
-  type: "episodic",
-  content: "Met a user named Alice today",
-  importance: 0.8,
-});
-
-// Recall memories
-const memories = await agent.recall("Alice", { limit: 10 });
-
-// Reflect on recent events
-await agent.reflect();
+// Check if running
+const running = agent.isRunning();
 ```
 
 ### Plugin Methods
 
 ```typescript
-// Add a plugin at runtime
-agent.use(twitterPlugin);
-
-// Remove a plugin
-agent.unuse("twitter");
+// Register a plugin
+agent.use(myPlugin);
 
 // Get plugin by name
-const plugin = agent.getPlugin("twitter");
+const plugin = agent.getPlugin("analytics");
+
+// Get all plugins
+const plugins = agent.getPlugins();
+
+// Execute a plugin action
+await agent.executeAction("analytics", "getData", { query: "..." });
 ```
 
-## Multiple Agents
-
-Run multiple agents in the same deployment:
+### Memory Access
 
 ```typescript
-import { AgentManager } from "@convex-agent/core";
+// Access the memory store
+const memoryStore = agent.memory;
 
-const manager = new AgentManager();
+// Store a memory
+await memoryStore.store({
+  type: "episodic",
+  content: "Event description",
+  importance: 0.7
+});
 
-// Register agents
-manager.register(new Agent({ name: "sage" }));
-manager.register(new Agent({ name: "trader" }));
-manager.register(new Agent({ name: "artist" }));
+// Query memories
+const memories = await memoryStore.query({
+  type: "semantic",
+  limit: 10
+});
+```
 
-// Start all
-await manager.startAll();
+## Configuration
 
-// Or start specific ones
-await manager.start("sage");
+```typescript
+import { createConfig } from "@convex-agent/core";
 
-// Inter-agent communication
-manager.on("message", (from, to, content) => {
-  console.log(`${from} -> ${to}: ${content}`);
+const config = createConfig({
+  tick: {
+    intervalMs: 300000,    // 5 minutes
+    timeoutMs: 60000,      // 1 minute max
+  },
+  memory: {
+    maxMemories: 10000,
+    embeddingModel: "gemini"
+  }
+});
+
+const agent = new Agent({
+  backend,
+  config,
+  plugins: []
 });
 ```
 
 ## Best Practices
 
-<AccordionGroup>
-  <Accordion title="Choose appropriate tick intervals">
-    - **Social agents**: 5-15 minutes (frequent engagement)
-    - **Analysis agents**: 30-60 minutes (deep processing)
-    - **Monitoring agents**: 1-5 minutes (real-time awareness)
-  </Accordion>
+**Choose appropriate tick intervals**
+- Social agents: 5-15 minutes
+- Analysis agents: 30-60 minutes
+- Monitoring agents: 1-5 minutes
 
-  <Accordion title="Design for failure">
-    Agents should gracefully handle:
-    - LLM API failures (retry with backoff)
-    - Rate limits (queue and delay)
-    - Invalid state (reset to defaults)
-  </Accordion>
+**Design for failure**
+- Handle LLM API failures with retries
+- Manage rate limits with queuing
+- Reset invalid state to defaults
 
-  <Accordion title="Use plugins for actions">
-    Keep core agent logic focused on thinking. Delegate actions (posting, trading) to plugins that can be tested independently.
-  </Accordion>
+**Use plugins for actions**
+- Keep core agent logic focused on thinking
+- Delegate actions to testable plugins
 
-  <Accordion title="Monitor health and mood">
-    Set up alerts for:
-    - Health below 25 (hibernation risk)
-    - Stuck in catatonic mood too long
-    - Tick failures
-  </Accordion>
-</AccordionGroup>
+**Monitor health**
+- Alert on health below 25
+- Track mood distribution
+- Log tick failures
 
 ## Next Steps
 
 <CardGroup cols={2}>
-  <Card title="Memory System" icon="brain" href="/concepts/memory">
-    Learn how agents remember and learn.
+  <Card title="Memory System" href="/concepts/memory">
+    How agents remember and learn
   </Card>
-  <Card title="Tick System" icon="clock" href="/concepts/tick-system">
-    Understand the execution loop.
+  <Card title="Tick System" href="/concepts/tick-system">
+    The execution loop
   </Card>
 </CardGroup>

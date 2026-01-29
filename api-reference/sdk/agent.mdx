@@ -17,62 +17,34 @@ npm install @convex-agent/core
 
 ```typescript
 import { Agent } from "@convex-agent/core";
+import { ConvexBackend } from "@convex-agent/core/backend";
 
 const agent = new Agent({
-  name: "my-agent",
-  description: "A helpful assistant",
-  model: "anthropic/claude-3.5-sonnet",
-  tickInterval: 300000,
-  plugins: [],
+  backend: new ConvexBackend({
+    url: process.env.CONVEX_URL!
+  }),
+  plugins: []
 });
 ```
 
-### Configuration Options
+### Options
 
 ```typescript
-interface AgentConfig {
-  // Identity
-  name: string;
-  description?: string;
-  avatar?: string;
-
-  // LLM
-  model: string;
-  temperature?: number;      // Default: 0.7
-  maxTokens?: number;        // Default: 2048
-
-  // Timing
-  tickInterval: number;      // Milliseconds
-  tickTimeout?: number;      // Default: 60000
-
-  // Initial state
-  initialState?: {
-    mood?: string;
-    health?: number;
-    volatility?: number;
-  };
-
-  // Memory config
-  memory?: {
-    maxMemories?: number;
-    consolidationInterval?: number;
-    embeddingModel?: string;
-  };
-
-  // Consciousness config
-  consciousness?: {
-    minImportance?: number;
-    brillianceThreshold?: number;
-    thoughtCooldown?: number;
-  };
-
-  // Plugins
+interface AgentOptions {
+  backend: Backend;
+  config?: Partial<AgentConfig>;
   plugins?: Plugin[];
+}
 
-  // Hooks
-  onTick?: (context: TickContext) => void;
-  onStateChange?: (state: AgentState) => void;
-  onError?: (error: Error) => void;
+interface AgentConfig {
+  tick: {
+    intervalMs: number;    // Default: 300000 (5 min)
+    timeoutMs: number;     // Default: 60000 (1 min)
+  };
+  memory: {
+    maxMemories: number;
+    embeddingModel: string;
+  };
 }
 ```
 
@@ -81,14 +53,31 @@ interface AgentConfig {
 ### Lifecycle
 
 ```typescript
-// Start the agent
-await agent.start();
+// Start automatic tick execution
+agent.start();
 
-// Stop the agent
-await agent.stop();
+// Stop automatic tick execution
+agent.stop();
 
 // Check if running
 const isRunning = agent.isRunning();
+```
+
+### Tick Execution
+
+```typescript
+// Execute a single tick
+const result = await agent.tick();
+
+// Result structure
+interface TickResult {
+  success: boolean;
+  state: AgentState;
+  summary?: string;
+  detail?: string;
+  artifacts?: unknown[];
+  error?: string;
+}
 ```
 
 ### State Management
@@ -97,222 +86,185 @@ const isRunning = agent.isRunning();
 // Get current state
 const state = await agent.getState();
 
-// Update state
-await agent.setState({
-  mood: "expressive",
-  health: 85,
-});
-
-// Subscribe to state changes
-agent.onStateChange((state) => {
-  console.log("State updated:", state);
-});
-```
-
-### Tick Execution
-
-```typescript
-// Manual tick
-const result = await agent.tick();
-
-// Tick with custom context
-const result = await agent.tick({
-  additionalKnowledge: ["Extra context..."],
-  forceProcess: true,
-});
-```
-
-### Memory Operations
-
-```typescript
-// Store a memory
-const memoryId = await agent.remember({
-  type: "episodic",
-  content: "Something happened",
-  importance: 0.7,
-  metadata: {
-    source: "user",
-    entities: ["topic1", "topic2"],
-  },
-});
-
-// Recall memories
-const memories = await agent.recall("search query", {
-  limit: 10,
-  type: "semantic",
-  threshold: 0.6,
-});
-
-// Trigger reflection
-const reflection = await agent.reflect({
-  type: "behavioral",
-  focus: "recent patterns",
-});
-
-// Get memory stats
-const stats = await agent.getMemoryStats();
-```
-
-### Consciousness
-
-```typescript
-// Generate a thought
-const thought = await agent.think({
-  seeds: ["input1", "input2"],
-});
-
-// Get recent thoughts
-const thoughts = await agent.getThoughts({ limit: 10 });
-
-// Get brilliant moments
-const brilliant = await agent.getBrilliantMoments({ limit: 5 });
+// State structure
+interface AgentState {
+  mood: Mood;
+  health: number;
+  routine: Routine;
+  volatility: number;
+  counters: { ticks: number; feeds: number };
+  lastTick: string | null;
+  cryo: boolean;
+}
 ```
 
 ### Plugin Management
 
 ```typescript
-// Add a plugin
+// Register a plugin
 agent.use(myPlugin);
 
-// Remove a plugin
-agent.unuse("plugin-name");
+// Get a plugin by name
+const plugin = agent.getPlugin("analytics");
 
-// Get a plugin
-const plugin = agent.getPlugin("plugin-name");
+// Get all plugins
+const plugins = agent.getPlugins();
 
-// Update plugin config
-agent.configurePlugin("plugin-name", { setting: "value" });
-
-// Call plugin action
-const result = await agent.action("plugin.actionName", ...args);
+// Execute a plugin action
+const result = await agent.executeAction("pluginName", "actionName", {
+  param: "value"
+});
 ```
 
-## Events
+### Memory Access
 
 ```typescript
-// State changes
-agent.on("stateChange", (state) => { ... });
+// Access the memory store
+const memoryStore = agent.memory;
 
-// Tick events
-agent.on("tickStart", () => { ... });
-agent.on("tickComplete", (result) => { ... });
-agent.on("tickError", (error) => { ... });
+// Store a memory
+await memoryStore.store({
+  type: "episodic",
+  content: "Event description",
+  scope: "short_term",
+  importance: 0.7,
+  salience: 0.5,
+  valence: 0,
+  confidence: 0.8,
+  tags: ["event"],
+  sourceType: "tick"
+});
 
-// Memory events
-agent.on("memoryCreated", (memory) => { ... });
-agent.on("memoryConsolidated", (result) => { ... });
+// Query memories
+const memories = await memoryStore.query({
+  type: "semantic",
+  limit: 10
+});
+```
 
-// Consciousness events
-agent.on("thought", (thought) => { ... });
-agent.on("brilliantMoment", (thought) => { ... });
+### Knowledge Access
 
-// Plugin events
-agent.on("pluginEvent", (name, event, data) => { ... });
+```typescript
+// Access the knowledge store
+const knowledgeStore = agent.knowledge;
+
+// Store knowledge
+await knowledgeStore.store({
+  type: "news",
+  textExcerpt: "Article content...",
+  source: "coindesk"
+});
+
+// Query knowledge
+const items = await knowledgeStore.query({
+  type: "news",
+  limit: 20
+});
 ```
 
 ## Types
 
-### AgentState
+### Mood
 
 ```typescript
-interface AgentState {
-  mood: "catatonic" | "contemplative" | "expressive" | "chaotic";
-  health: number;           // 0-100
-  routine: "morning" | "day" | "evening" | "overnight";
-  volatility: number;       // 0-1
-  summary: string;
-  updatedAt: number;
-}
+type Mood =
+  | "neutral"
+  | "expressive"
+  | "curious"
+  | "excited"
+  | "reflective"
+  | "concerned";
 ```
 
-### TickResult
+### Routine
 
 ```typescript
-interface TickResult {
-  success: boolean;
-  mood: string;
-  health: number;
-  volatility: number;
-  summary: string;
-  detail: string;
-  remark?: string;
-  artifacts: Artifact[];
-  duration: number;
-}
+type Routine =
+  | "morning"    // 6am - 12pm
+  | "day"        // 12pm - 6pm
+  | "evening"    // 6pm - 12am
+  | "overnight"; // 12am - 6am
 ```
 
-### TickContext
+### MemoryType
 
 ```typescript
-interface TickContext {
-  state: AgentState;
-  response: TickResponse;
-  memories: Memory[];
-  knowledge: KnowledgeItem[];
-  routine: Routine;
-  artifacts: Artifact[];
+type MemoryType =
+  | "episodic"    // Specific events
+  | "semantic"    // Facts and concepts
+  | "procedural"; // Learned patterns
+```
 
-  // Helpers
-  remember(memory: NewMemory): Promise<string>;
-  recall(query: string, options?: RecallOptions): Promise<Memory[]>;
-  getRecentThought(): ConsciousThought | null;
-  shouldAct(): boolean;
-  getActionPriority(): number;
-  emit(event: string, data: any): void;
-  getPlugin(name: string): Plugin;
-}
+### MemoryScope
+
+```typescript
+type MemoryScope =
+  | "short_term"  // Recent, may decay
+  | "working"     // Active processing
+  | "long_term";  // Permanent storage
 ```
 
 ## Example Usage
 
 ```typescript
 import { Agent } from "@convex-agent/core";
-import { twitterPlugin } from "@clarkos/plugin-twitter";
+import { ConvexBackend } from "@convex-agent/core/backend";
 
-// Create agent
+// Create backend
+const backend = new ConvexBackend({
+  url: process.env.CONVEX_URL!
+});
+
+// Create agent with plugin
 const agent = new Agent({
-  name: "sage",
-  description: "A thoughtful crypto analyst",
-  model: "anthropic/claude-3.5-sonnet",
-  tickInterval: 5 * 60 * 1000,  // 5 minutes
+  backend,
   plugins: [
-    twitterPlugin({
-      apiKey: process.env.TWITTER_API_KEY!,
-      // ...
-    }),
-  ],
+    {
+      name: "logger",
+      version: "1.0.0",
+      onTick(context) {
+        console.log(`Tick: mood=${context.state.mood}, health=${context.state.health}`);
+      }
+    }
+  ]
 });
 
-// Set up event handlers
-agent.on("thought", (thought) => {
-  console.log(`New thought: ${thought.content}`);
-});
+// Run a tick
+const result = await agent.tick();
+console.log("Tick result:", result);
 
-agent.on("brilliantMoment", (thought) => {
-  console.log(`Brilliant insight: ${thought.content}`);
-});
+// Get state
+const state = await agent.getState();
+console.log("Current state:", state);
 
-// Start the agent
-await agent.start();
+// Start automatic execution
+agent.start();
 
-// Manual operations
-await agent.remember({
-  type: "semantic",
-  content: "Important fact to remember",
-  importance: 0.8,
-});
-
-const relevant = await agent.recall("crypto markets");
-console.log("Relevant memories:", relevant);
+// Later: stop
+agent.stop();
 ```
+
+## SDK Roadmap
+
+Current implementation:
+- Agent class with tick/start/stop
+- Plugin registration and execution
+- Memory store interface
+- Knowledge store interface
+
+Expanding to include:
+- Event emitter for state changes
+- Consciousness processing integration
+- Advanced memory operations (dedup, linking)
+- Configuration validation with Zod
 
 ## Next Steps
 
 <CardGroup cols={2}>
-  <Card title="Memory Store" icon="brain" href="/api-reference/sdk/memory-store">
-    Memory system SDK reference.
+  <Card title="Memory Store" href="/api-reference/sdk/memory-store">
+    Memory system reference
   </Card>
-  <Card title="Plugins SDK" icon="plug" href="/api-reference/sdk/plugins">
-    Plugin development reference.
+  <Card title="Plugins SDK" href="/api-reference/sdk/plugins">
+    Plugin development reference
   </Card>
 </CardGroup>
