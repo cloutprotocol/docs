@@ -220,17 +220,34 @@ Before using a community plugin:
 
 ### Plugin Template
 
+Use the plugin development guide to create your plugin:
+
 ```typescript
-// Use our template to get started
-npx create-clarkos-plugin my-plugin
+// plugins/my-plugin.ts
+import type { Plugin, TickContext } from "@convex-agent/core";
+
+export const myPlugin: Plugin = {
+  name: "my-plugin",
+  version: "1.0.0",
+  description: "A community plugin",
+
+  onTick(context: TickContext) {
+    // Your plugin logic
+  },
+
+  actions: {
+    async myAction(params, agent) {
+      return { success: true };
+    }
+  }
+};
 ```
 
-This scaffolds:
-- TypeScript configuration
-- Test setup
-- Documentation template
-- CI/CD workflow
-- NPM publishing config
+Your plugin should include:
+- TypeScript types
+- README with usage examples
+- Test coverage
+- No hardcoded credentials
 
 ## Security Notes
 
