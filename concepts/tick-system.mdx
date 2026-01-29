@@ -185,19 +185,19 @@ function calculateRoutine(date: Date): Routine {
 
   if (hour >= 6 && hour < 12) return "morning";
   if (hour >= 12 && hour < 18) return "day";
-  if (hour >= 18 && hour < 23) return "evening";
+  if (hour >= 18 && hour < 22) return "evening";
   return "overnight";
 }
 ```
 
 ### Routine Behaviors
 
-| Routine | Hours | Health Drift | Typical Behavior |
-|---------|-------|--------------|------------------|
-| Morning | 6-12 | +2 | Waking up, reviewing, planning |
-| Day | 12-18 | ±0 | Active engagement, processing |
-| Evening | 18-23 | -1 | Winding down, reflecting |
-| Overnight | 23-6 | -3 | Minimal activity, maintenance |
+| Routine | Hours (PST) | Health Drift | Typical Behavior |
+|---------|-------------|--------------|------------------|
+| Morning | 6:00-12:00 | +2 | Waking up, reviewing, planning |
+| Day | 12:00-18:00 | ±0 | Active engagement, processing |
+| Evening | 18:00-22:00 | -1 | Winding down, reflecting |
+| Overnight | 22:00-6:00 | -3 | Minimal activity, maintenance |
 
 ## Tick Configuration
 

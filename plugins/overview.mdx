@@ -48,8 +48,8 @@ Build your own for specific needs.
 ### Using a Plugin
 
 ```typescript
-import { Agent } from "@convex-agent/core";
-import { ConvexBackend } from "@convex-agent/core/backend";
+import { Agent } from "./src";
+import { ConvexBackend } from "./src/backend";
 import { createTwitterPlugin } from "./plugins/twitter";
 
 const agent = new Agent({
@@ -69,7 +69,7 @@ const agent = new Agent({
 ### Building a Plugin
 
 ```typescript
-import type { Plugin, TickContext } from "@convex-agent/core";
+import type { Plugin, TickContext } from "./src";
 
 export const myPlugin: Plugin = {
   name: "my-plugin",

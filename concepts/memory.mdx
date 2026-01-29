@@ -81,10 +81,10 @@ ClarkOS uses type-specific similarity thresholds for deduplication:
 | Type | Threshold | Rationale |
 |------|-----------|-----------|
 | Episodic | 0.92 | Events can be similar but distinct |
-| Semantic | 0.88 | Facts should consolidate easily |
-| Emotional | 0.85 | Feelings about same topic merge |
-| Procedural | 0.90 | Patterns need precision |
-| Reflection | 0.95 | Self-insights should be unique |
+| Semantic | 0.95 | Facts need high similarity to be duplicates |
+| Emotional | 0.88 | Feelings about same topic merge |
+| Procedural | 0.97 | Patterns need near-exact match |
+| Reflection | 0.90 | Self-insights should be quite unique |
 
 ```typescript
 // Store with deduplication

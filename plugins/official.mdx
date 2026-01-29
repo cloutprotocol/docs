@@ -14,7 +14,7 @@ Official plugins are fully supported, regularly updated, and guaranteed to work 
 All official plugins follow the standard ClarkOS plugin interface:
 
 ```typescript
-import type { Plugin, TickContext } from "@convex-agent/core";
+import type { Plugin, TickContext } from "./src";
 
 const examplePlugin: Plugin = {
   name: "plugin-name",
@@ -49,7 +49,7 @@ Post tweets, reply to mentions, monitor keywords.
 
 ```typescript
 // plugins/twitter.ts
-import type { Plugin, TickContext } from "@convex-agent/core";
+import type { Plugin, TickContext } from "./src";
 
 interface TwitterConfig {
   apiKey: string;
@@ -101,7 +101,7 @@ Community engagement through Discord bot.
 
 ```typescript
 // plugins/discord.ts
-import type { Plugin, TickContext } from "@convex-agent/core";
+import type { Plugin, TickContext } from "./src";
 
 interface DiscordConfig {
   token: string;
@@ -143,7 +143,7 @@ Multi-source news aggregation.
 
 ```typescript
 // plugins/news.ts
-import type { Plugin, TickContext } from "@convex-agent/core";
+import type { Plugin, TickContext } from "./src";
 
 interface NewsSource {
   name: string;
@@ -201,7 +201,7 @@ Real-time market data.
 
 ```typescript
 // plugins/markets.ts
-import type { Plugin } from "@convex-agent/core";
+import type { Plugin } from "./src";
 
 interface MarketsConfig {
   symbols: string[];
@@ -246,8 +246,8 @@ export function createMarketsPlugin(config: MarketsConfig): Plugin {
 Use these patterns to build custom plugins:
 
 ```typescript
-import type { Plugin, TickContext } from "@convex-agent/core";
-import type { Agent } from "@convex-agent/core";
+import type { Plugin, TickContext } from "./src";
+import type { Agent } from "./src";
 
 interface MyPluginConfig {
   apiKey: string;
@@ -297,8 +297,8 @@ export function createMyPlugin(config: MyPluginConfig): Plugin {
 ## Registering Plugins
 
 ```typescript
-import { Agent } from "@convex-agent/core";
-import { ConvexBackend } from "@convex-agent/core/backend";
+import { Agent } from "./src";
+import { ConvexBackend } from "./src/backend";
 import { createTwitterPlugin } from "./plugins/twitter";
 import { createNewsPlugin } from "./plugins/news";
 

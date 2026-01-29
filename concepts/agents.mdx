@@ -144,8 +144,8 @@ interface JournalArtifact {
 ## Creating an Agent
 
 ```typescript
-import { Agent } from "@convex-agent/core";
-import { ConvexBackend } from "@convex-agent/core/backend";
+import { Agent } from "./src";
+import { ConvexBackend } from "./src/backend";
 
 const agent = new Agent({
   backend: new ConvexBackend({
@@ -170,7 +170,7 @@ const state = await agent.getState();
 ## Configuration
 
 ```typescript
-import { createConfig } from "@convex-agent/core";
+import { createConfig } from "./src";
 
 const config = createConfig({
   tick: {

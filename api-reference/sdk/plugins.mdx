@@ -45,7 +45,7 @@ interface Plugin {
 ### Basic Plugin
 
 ```typescript
-import { Plugin } from "@convex-agent/core";
+import { Plugin } from "./src";
 
 export const myPlugin: Plugin = {
   name: "my-plugin",
@@ -69,7 +69,7 @@ export const myPlugin: Plugin = {
 ### Factory Pattern (Recommended)
 
 ```typescript
-import { Plugin, PluginConfig } from "@convex-agent/core";
+import { Plugin, PluginConfig } from "./src";
 import { z } from "zod";
 
 // Define config schema
@@ -412,7 +412,7 @@ async onTick(context) {
 ## Testing Plugins
 
 ```typescript
-import { createTestAgent, createMockContext } from "@convex-agent/core/testing";
+import { createTestAgent, createMockContext } from "./src/testing";
 
 describe("My Plugin", () => {
   test("onTick handles expressive mood", async () => {
@@ -461,7 +461,7 @@ my-clarkos-plugin/
   "types": "dist/index.d.ts",
   "keywords": ["clarkos-agent-plugin", "convex-agent-plugin"],
   "peerDependencies": {
-    "@convex-agent/core": "^1.0.0"
+    "./src": "^1.0.0"
   }
 }
 ```

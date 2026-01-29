@@ -23,8 +23,8 @@ graph TD
 
 ```typescript
 // plugins/social.ts
-import type { Plugin, TickContext } from "@convex-agent/core";
-import type { Agent } from "@convex-agent/core";
+import type { Plugin, TickContext } from "./src";
+import type { Agent } from "./src";
 
 interface SocialConfig {
   postCooldownMinutes: number;
@@ -102,7 +102,7 @@ A simple plugin to track agent activity:
 
 ```typescript
 // plugins/logger.ts
-import type { Plugin, TickContext } from "@convex-agent/core";
+import type { Plugin, TickContext } from "./src";
 
 export const loggerPlugin: Plugin = {
   name: "logger",
@@ -125,8 +125,8 @@ export const loggerPlugin: Plugin = {
 
 ```typescript
 // agent.ts
-import { Agent } from "@convex-agent/core";
-import { ConvexBackend } from "@convex-agent/core/backend";
+import { Agent } from "./src";
+import { ConvexBackend } from "./src/backend";
 import { createSocialPlugin } from "./plugins/social";
 import { loggerPlugin } from "./plugins/logger";
 

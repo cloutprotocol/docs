@@ -3,12 +3,16 @@ title: "Agent SDK"
 description: "TypeScript SDK for building ClarkOS agents"
 ---
 
-The `@convex-agent/core` package provides the main `Agent` class for building autonomous agents.
+The ClarkOS SDK is included in the template repository under `/src`. It provides the main `Agent` class for building autonomous agents.
 
-## Installation
+## Setup
+
+The SDK is included when you clone the template:
 
 ```bash
-npm install @convex-agent/core
+git clone https://github.com/cloutprotocol/clarkos my-agent
+cd my-agent
+npm install
 ```
 
 ## Agent Class
@@ -16,8 +20,8 @@ npm install @convex-agent/core
 ### Constructor
 
 ```typescript
-import { Agent } from "@convex-agent/core";
-import { ConvexBackend } from "@convex-agent/core/backend";
+import { Agent } from "./src";
+import { ConvexBackend } from "./src/backend";
 
 const agent = new Agent({
   backend: new ConvexBackend({
@@ -190,9 +194,11 @@ type Routine =
 
 ```typescript
 type MemoryType =
-  | "episodic"    // Specific events
+  | "episodic"    // Specific events and experiences
   | "semantic"    // Facts and concepts
-  | "procedural"; // Learned patterns
+  | "emotional"   // Feelings about topics
+  | "procedural"  // Learned patterns
+  | "reflection"; // Self-reflective insights
 ```
 
 ### MemoryScope
@@ -207,8 +213,8 @@ type MemoryScope =
 ## Example Usage
 
 ```typescript
-import { Agent } from "@convex-agent/core";
-import { ConvexBackend } from "@convex-agent/core/backend";
+import { Agent } from "./src";
+import { ConvexBackend } from "./src/backend";
 
 // Create backend
 const backend = new ConvexBackend({

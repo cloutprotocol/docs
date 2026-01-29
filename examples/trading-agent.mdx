@@ -27,8 +27,8 @@ graph TD
 
 ```typescript
 // plugins/markets.ts
-import type { Plugin, TickContext } from "@convex-agent/core";
-import type { Agent } from "@convex-agent/core";
+import type { Plugin, TickContext } from "./src";
+import type { Agent } from "./src";
 
 interface MarketData {
   symbol: string;
@@ -100,8 +100,8 @@ async function fetchMarketData(symbols: string[]): Promise<MarketData[]> {
 
 ```typescript
 // plugins/paper-trading.ts
-import type { Plugin, TickContext } from "@convex-agent/core";
-import type { Agent } from "@convex-agent/core";
+import type { Plugin, TickContext } from "./src";
+import type { Agent } from "./src";
 
 interface Position {
   symbol: string;
@@ -210,8 +210,8 @@ export function createPaperTradingPlugin(config: {
 
 ```typescript
 // agent.ts
-import { Agent } from "@convex-agent/core";
-import { ConvexBackend } from "@convex-agent/core/backend";
+import { Agent } from "./src";
+import { ConvexBackend } from "./src/backend";
 import { createMarketsPlugin } from "./plugins/markets";
 import { createPaperTradingPlugin } from "./plugins/paper-trading";
 

@@ -115,7 +115,7 @@ Extend your agent with a plugin:
 
 ```typescript
 // plugins/logger.ts
-import type { Plugin } from "@convex-agent/core";
+import type { Plugin } from "./src/plugins";
 
 export const loggerPlugin: Plugin = {
   name: "logger",
@@ -136,8 +136,8 @@ export const loggerPlugin: Plugin = {
 Register it in your agent:
 
 ```typescript
-import { Agent } from "@convex-agent/core";
-import { ConvexBackend } from "@convex-agent/core/backend";
+import { Agent } from "./src";
+import { ConvexBackend } from "./src/backend";
 import { loggerPlugin } from "./plugins/logger";
 
 const agent = new Agent({

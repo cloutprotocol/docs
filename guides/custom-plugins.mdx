@@ -55,7 +55,7 @@ interface AgentState {
 ## Basic Plugin
 
 ```typescript
-import type { Plugin, TickContext } from "@convex-agent/core";
+import type { Plugin, TickContext } from "./src/plugins";
 
 export const loggerPlugin: Plugin = {
   name: "logger",
@@ -74,8 +74,8 @@ export const loggerPlugin: Plugin = {
 For configurable plugins, use a factory function:
 
 ```typescript
-import type { Plugin, TickContext } from "@convex-agent/core";
-import type { Agent } from "@convex-agent/core";
+import type { Plugin, TickContext } from "./src/plugins";
+import type { Agent } from "./src";
 
 interface AnalyticsConfig {
   endpoint: string;
@@ -229,8 +229,8 @@ export const enhancedPlugin: Plugin = {
 ## Registering Plugins
 
 ```typescript
-import { Agent } from "@convex-agent/core";
-import { ConvexBackend } from "@convex-agent/core/backend";
+import { Agent } from "./src";
+import { ConvexBackend } from "./src/backend";
 import { loggerPlugin } from "./plugins/logger";
 import { createAnalyticsPlugin } from "./plugins/analytics";
 
