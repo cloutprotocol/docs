@@ -3,47 +3,41 @@ title: "Plugin Overview"
 description: "Extending ClarkOS agents with plugins"
 ---
 
-Plugins are the primary extension mechanism for ClarkOS agents. They allow you to add new capabilities without modifying core agent logic.
+Plugins are the primary extension mechanism for ClarkOS agents. They allow you to add capabilities without modifying core agent logic.
 
 ## What Plugins Can Do
 
 <CardGroup cols={2}>
-  <Card title="External Integrations" icon="plug">
-    Connect to Twitter, Discord, Telegram, trading platforms, and more.
+  <Card title="External Integrations">
+    Connect to Twitter, Discord, Telegram, trading platforms.
   </Card>
-  <Card title="Data Sources" icon="database">
-    Ingest news feeds, market data, social mentions, or custom APIs.
+  <Card title="Data Sources">
+    Ingest news feeds, market data, social mentions.
   </Card>
-  <Card title="Actions" icon="bolt">
-    Post content, execute trades, send notifications, generate images.
+  <Card title="Actions">
+    Post content, execute trades, send notifications.
   </Card>
-  <Card title="Analytics" icon="chart-line">
-    Track metrics, log events, send to monitoring systems.
+  <Card title="Analytics">
+    Track metrics, log events, monitoring.
   </Card>
 </CardGroup>
 
 ## Plugin Ecosystem
 
-ClarkOS has three categories of plugins:
-
 ### Official Plugins
 
-Maintained by the ClarkOS team, guaranteed compatibility:
-
-- **@clarkos/plugin-twitter** - Twitter posting and interaction
-- **@clarkos/plugin-discord** - Discord bot integration
-- **@clarkos/plugin-telegram** - Telegram bot integration
-- **@clarkos/plugin-news** - Multi-source news aggregation
-- **@clarkos/plugin-trading** - Paper and live trading
+Example plugins with full interface patterns:
+- **Twitter** - Posting and interaction
+- **Discord** - Bot integration
+- **News** - Multi-source aggregation
+- **Markets** - Price data
 
 ### Community Plugins
 
-Built by the community, varying quality:
-
-- **clarkos-plugin-reddit** - Reddit monitoring and posting
-- **clarkos-plugin-openai** - OpenAI API integration
-- **clarkos-plugin-midjourney** - AI image generation
-- **clarkos-plugin-polymarket** - Prediction market integration
+Built by the community:
+- **clarkos-plugin-reddit** - Reddit monitoring
+- **clarkos-plugin-notion** - Notion sync
+- **clarkos-plugin-voice** - Text-to-speech
 
 ### Custom Plugins
 
@@ -55,42 +49,43 @@ Build your own for specific needs.
 
 ```typescript
 import { Agent } from "@convex-agent/core";
-import { twitterPlugin } from "@clarkos/plugin-twitter";
+import { ConvexBackend } from "@convex-agent/core/backend";
+import { createTwitterPlugin } from "./plugins/twitter";
 
 const agent = new Agent({
-  name: "my-agent",
+  backend: new ConvexBackend({ url: process.env.CONVEX_URL! }),
   plugins: [
-    twitterPlugin({
-      apiKey: process.env.TWITTER_API_KEY,
-      apiSecret: process.env.TWITTER_API_SECRET,
-      accessToken: process.env.TWITTER_ACCESS_TOKEN,
-      accessSecret: process.env.TWITTER_ACCESS_SECRET,
-    }),
-  ],
+    createTwitterPlugin({
+      apiKey: process.env.TWITTER_API_KEY!,
+      apiSecret: process.env.TWITTER_API_SECRET!,
+      accessToken: process.env.TWITTER_ACCESS_TOKEN!,
+      accessSecret: process.env.TWITTER_ACCESS_SECRET!,
+      cooldownMinutes: 60
+    })
+  ]
 });
 ```
 
 ### Building a Plugin
 
 ```typescript
-import { Plugin } from "@convex-agent/core";
+import type { Plugin, TickContext } from "@convex-agent/core";
 
 export const myPlugin: Plugin = {
   name: "my-plugin",
   version: "1.0.0",
 
-  async init(agent) {
+  init(agent) {
     console.log("Plugin initialized");
   },
 
-  async onTick(context) {
-    // React to each tick
+  onTick(context: TickContext) {
     console.log(`Mood: ${context.state.mood}`);
   },
 
-  async cleanup(agent) {
+  cleanup(agent) {
     console.log("Plugin cleanup");
-  },
+  }
 };
 ```
 
@@ -100,117 +95,80 @@ Every plugin implements this interface:
 
 ```typescript
 interface Plugin {
-  // Identity
   name: string;
   version: string;
   description?: string;
-  author?: string;
-
-  // Dependencies on other plugins
   dependencies?: string[];
 
-  // Lifecycle
   init?(agent: Agent): void | Promise<void>;
   cleanup?(agent: Agent): void | Promise<void>;
-
-  // Tick hook
   onTick?(context: TickContext): void | Promise<void>;
 
-  // Custom actions
   actions?: Record<string, ActionHandler>;
-
-  // Event handlers
-  on?: Record<string, EventHandler>;
 }
+
+type ActionHandler = (
+  params: Record<string, unknown>,
+  agent: Agent
+) => Promise<unknown>;
 ```
 
 ## Tick Context
 
-Plugins receive full context each tick:
+Plugins receive context each tick:
 
 ```typescript
 interface TickContext {
-  // Current state
   state: AgentState;
-
-  // LLM response
-  response: TickResponse;
-
-  // Retrieved data
   memories: Memory[];
-  knowledge: KnowledgeItem[];
+  knowledge: Knowledge[];
+  recentLogs: Log[];
+}
 
-  // Time context
+interface AgentState {
+  mood: Mood;
+  health: number;
   routine: Routine;
-
-  // Artifacts to process
-  artifacts: Artifact[];
-
-  // Helper methods
-  remember(memory: NewMemory): Promise<string>;
-  recall(query: string): Promise<Memory[]>;
-  getRecentThought(): ConsciousThought | null;
-  shouldAct(): boolean;
+  volatility: number;
+  counters: { ticks: number; feeds: number };
+  lastTick: string | null;
+  cryo: boolean;
 }
 ```
 
 ## Plugin Actions
 
-Plugins can expose callable actions:
+Plugins expose callable actions:
 
 ```typescript
-export const tradingPlugin: Plugin = {
-  name: "trading",
-  version: "1.0.0",
+export function createTradingPlugin(config: TradingConfig): Plugin {
+  return {
+    name: "trading",
+    version: "1.0.0",
 
-  actions: {
-    async buy(symbol: string, amount: number) {
-      // Execute buy order
-      return { orderId: "...", filled: true };
-    },
+    actions: {
+      async buy(params: { symbol: string; amount: number }) {
+        // Execute buy order
+        return { success: true, orderId: "..." };
+      },
 
-    async sell(symbol: string, amount: number) {
-      // Execute sell order
-      return { orderId: "...", filled: true };
-    },
+      async sell(params: { symbol: string; amount: number }) {
+        // Execute sell order
+        return { success: true, orderId: "..." };
+      },
 
-    async getPortfolio() {
-      return { positions: [...], totalValue: 10000 };
-    },
-  },
-};
+      async getPortfolio() {
+        return { success: true, positions: [], totalValue: 10000 };
+      }
+    }
+  };
+}
 
 // Call from code
-const result = await agent.action("trading.buy", "ETH", 100);
-
-// Or via HTTP
-// POST /actions/trading/buy
-// { "symbol": "ETH", "amount": 100 }
-```
-
-## Plugin Events
-
-Plugins can emit and listen to events:
-
-```typescript
-// Emit events
-context.emit("tweet_posted", { id: "...", content: "..." });
-
-// Listen to events
-export const analyticsPlugin: Plugin = {
-  name: "analytics",
-  version: "1.0.0",
-
-  on: {
-    tweet_posted: async (data) => {
-      await trackEvent("social", "tweet", data);
-    },
-
-    memory_created: async (data) => {
-      await trackEvent("memory", "create", data);
-    },
-  },
-};
+const result = await agent.executeAction("trading", "buy", {
+  symbol: "ETH",
+  amount: 100
+});
 ```
 
 ## Configuration Patterns
@@ -218,23 +176,34 @@ export const analyticsPlugin: Plugin = {
 ### Factory Functions
 
 ```typescript
+interface TwitterConfig {
+  apiKey: string;
+  cooldownMinutes: number;
+}
+
 export function createTwitterPlugin(config: TwitterConfig): Plugin {
+  let lastPostTime = 0;
+
   return {
     name: "twitter",
     version: "1.0.0",
-    // ... implementation using config
+
+    onTick(context) {
+      const now = Date.now();
+      if (now - lastPostTime < config.cooldownMinutes * 60 * 1000) {
+        return; // Cooldown active
+      }
+      // ... posting logic
+    },
+
+    actions: {
+      async post(params: { content: string }) {
+        lastPostTime = Date.now();
+        return { success: true };
+      }
+    }
   };
 }
-```
-
-### Runtime Configuration
-
-```typescript
-// Update config at runtime
-agent.configurePlugin("twitter", {
-  postEnabled: true,
-  replyEnabled: false,
-});
 ```
 
 ### Environment-Based
@@ -242,41 +211,29 @@ agent.configurePlugin("twitter", {
 ```typescript
 const plugin = createPlugin({
   enabled: process.env.PLUGIN_ENABLED === "true",
-  apiKey: process.env.PLUGIN_API_KEY,
+  apiKey: process.env.PLUGIN_API_KEY!
 });
 ```
 
 ## Best Practices
 
-<AccordionGroup>
-  <Accordion title="Keep plugins focused">
-    One plugin = one responsibility. A Twitter plugin shouldn't also handle Discord.
-  </Accordion>
+**Keep plugins focused** - One plugin, one responsibility.
 
-  <Accordion title="Handle errors gracefully">
-    Never crash the agent. Log errors, maybe reduce health, but keep running.
-  </Accordion>
+**Handle errors gracefully** - Never crash the agent. Log errors and continue.
 
-  <Accordion title="Respect rate limits">
-    Track API usage. Implement cooldowns. Queue requests if needed.
-  </Accordion>
+**Respect rate limits** - Track API usage, implement cooldowns.
 
-  <Accordion title="Make plugins testable">
-    Use dependency injection. Mock external services. Write unit tests.
-  </Accordion>
+**Make plugins testable** - Use dependency injection for external services.
 
-  <Accordion title="Document thoroughly">
-    Include README, configuration options, and usage examples.
-  </Accordion>
-</AccordionGroup>
+**Document thoroughly** - Include usage examples and configuration options.
 
 ## Next Steps
 
 <CardGroup cols={2}>
-  <Card title="Official Plugins" icon="check" href="/plugins/official">
-    Production-ready plugins from the ClarkOS team.
+  <Card title="Official Plugins" href="/plugins/official">
+    Example plugins with full patterns
   </Card>
-  <Card title="Build Custom" icon="hammer" href="/guides/custom-plugins">
-    Step-by-step plugin development guide.
+  <Card title="Build Custom" href="/guides/custom-plugins">
+    Step-by-step development guide
   </Card>
 </CardGroup>
