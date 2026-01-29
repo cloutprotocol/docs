@@ -1,0 +1,408 @@
+---
+title: "Presence Layer"
+description: "Real-time 3D character, speech, and live visualization"
+---
+
+The Presence Layer transforms agent state into tangible, real-time expression. While standard agent frameworks operate invisibly, ClarkOS agents have a persistent visual and auditory presence.
+
+## Architecture Overview
+
+```
+┌─────────────────────────────────────────────────────────────────┐
+│                     PRESENCE LAYER                               │
+├─────────────────────────────────────────────────────────────────┤
+│  ┌──────────────┐  ┌──────────────┐  ┌──────────────────────┐  │
+│  │  3D Character │  │ Text-to-Speech│  │   CRT Post-Process   │  │
+│  │  (Three.js)   │  │ (Web Speech)  │  │     (WebGL)          │  │
+│  └──────┬───────┘  └──────┬───────┘  └──────────┬───────────┘  │
+│         │                  │                      │              │
+│         ▼                  ▼                      ▼              │
+│  ┌──────────────────────────────────────────────────────────┐  │
+│  │                  State-Driven Animation                    │  │
+│  │  mood → expressions   health → energy   routine → behavior │  │
+│  └──────────────────────────────────────────────────────────┘  │
+├─────────────────────────────────────────────────────────────────┤
+│                    CONVEX REAL-TIME SYNC                        │
+│         useQuery(api.state) → automatic re-render on change     │
+└─────────────────────────────────────────────────────────────────┘
+```
+
+## 3D Character System
+
+The character is rendered in real-time using Three.js with parametric geometry.
+
+### Geometry Structure
+
+```typescript
+// Core character components
+const skull = new THREE.IcosahedronGeometry(2.0, 0);  // Base head
+const neck = new THREE.CylinderGeometry(0.8, 1.2, 2.5);
+const eyes = new THREE.BoxGeometry(0.22, 0.14, 0.12);
+const mouth = new THREE.BoxGeometry(0.8, 0.12, 0.2);
+const ears = new THREE.ConeGeometry(0.5, 1.2);
+const nose = new THREE.ConeGeometry(0.15, 0.4);
+```
+
+### Lighting Setup
+
+Four-point lighting for depth and character:
+
+| Light | Type | Color | Intensity | Position |
+|-------|------|-------|-----------|----------|
+| Ambient | Ambient | #e7ecea | 1.05 | - |
+| Key | Directional | #f6f7f6 | 1.9 | (5, 5, 8) |
+| Rim | Point | #d8dedb | 1.8 | (-5, 4, -6) |
+| Fill | Point | #e4e8e6 | 0.7 | (0, -2, 6) |
+
+## Morph Target System
+
+The character transforms between states using parametric vertex morphing.
+
+### Morph Types
+
+| Morph | Trigger | Timing | Visual Effect |
+|-------|---------|--------|---------------|
+| Fish | "evolving" keyword | 0.5s rise, 1.4s hold, 0.7s fall | Horizontal elongation, front expansion |
+| Alien | "alien shift" keyword | 0.6s rise, 1.6s hold, 0.8s fall | Vertical elongation, upward stretch |
+
+### Vertex Transformation
+
+```typescript
+// Fish morph - elongates horizontally
+function transformFishPoint(x: number, y: number, z: number) {
+  return {
+    x: x * 0.82,
+    y: y * 0.68,
+    z: z * 1.28
+  };
+}
+
+// Alien morph - stretches upward
+function transformAlienPoint(x: number, y: number, z: number) {
+  return {
+    x: x * 0.9,
+    y: y > 0 ? y * 1.3 : y * 1.0,
+    z: z > 0.1 ? z * 0.5 : z * 1.1
+  };
+}
+
+// Blend both morphs with easing
+function blendMorphPoint(original, fishFactor, alienFactor) {
+  const fishPoint = transformFishPoint(original);
+  const alienPoint = transformAlienPoint(original);
+
+  return {
+    x: original.x * (1 - fishFactor - alienFactor)
+       + fishPoint.x * fishFactor
+       + alienPoint.x * alienFactor,
+    // ... y, z similarly blended
+  };
+}
+```
+
+### Feature Animation
+
+Features respond to morph state:
+
+```typescript
+// Eyes scale up 60% during alien morph
+const eyeScale = 1 + alienFactor * 0.6;
+
+// Fish fin appears when fishFactor > 0.05
+fin.visible = fishFactor > 0.05;
+fin.scale.set(fishFactor, fishFactor, fishFactor);
+```
+
+## Text-to-Speech
+
+Browser-native speech synthesis with voice selection.
+
+### Voice Configuration
+
+```typescript
+interface VoiceConfig {
+  rate: 0.9;      // Slightly slower for clarity
+  pitch: 0.95;    // Slightly lower pitch
+  volume: 0.8;
+}
+```
+
+### Voice Selection Priority
+
+1. Microsoft David (Windows)
+2. Alex (macOS)
+3. Daniel (iOS)
+4. Google US/UK English Male
+5. Fallback: any English male voice
+
+### Speech Service API
+
+```typescript
+const speech = TextToSpeechService.getInstance();
+
+// Speak text
+speech.speak("The market shows interesting patterns today.");
+
+// Subscribe to speaking state
+speech.subscribe((isSpeaking) => {
+  if (isSpeaking) {
+    // Animate mouth
+  }
+});
+
+// Adjust parameters
+speech.setRate(0.85);
+speech.setPitch(1.0);
+```
+
+## Mouth Animation & Pseudo Lip-Sync
+
+Mouth movement synchronized with speech duration.
+
+### Animation Formula
+
+```typescript
+// During speech: pulse at 8.5 Hz
+const mouthPulse = 0.6 + 0.4 * Math.abs(Math.sin(time * 8.5));
+
+// Y-scale expands with pulse
+mouth.scale.y = 1 + mouthPulse * 0.7;
+
+// Slight vertical offset
+mouth.position.y = baseY - mouthPulse * 0.12;
+```
+
+### Caption System
+
+Rolling word display synchronized with speech:
+
+```typescript
+// Updates every 220ms
+// Shows sliding window of next 16 words
+// Starts when speech begins
+const captionWindow = words.slice(currentIndex, currentIndex + 16);
+```
+
+## State-Driven Animation
+
+Agent state affects character behavior.
+
+### Mood Effects
+
+| Mood | Wobble Boost | Pulse Boost | Speech Rate |
+|------|--------------|-------------|-------------|
+| Groggy | 0.7 | 0.6 | -0.08 |
+| Research | 1.2 | 1.2 | +0.08 |
+| Out-of-body | 1.4 | 1.1 | 0 |
+| Default | 1.0 | 1.0 | 0 |
+
+### Idle Animation
+
+Mouse-aware idle system:
+
+```typescript
+const idleConfig = {
+  delayMs: 2200,       // Wait before idle starts
+  blendMs: 1600,       // Fade-in duration
+  rotX: 0.09,          // Head rotation range
+  rotY: 0.14,
+  rotZ: 0.05,
+  bob: 0.05,           // Vertical bobbing
+  bobSpeaking: 0.028   // Reduced when speaking
+};
+
+// Multiple sine waves for organic movement
+const idleRotX = Math.sin(time * 0.7) * config.rotX;
+const idleRotY = Math.cos(time * 0.5) * config.rotY;
+const idleRotZ = Math.sin(time * 0.3) * config.rotZ;
+```
+
+## CRT Post-Processing Shader
+
+Retro-futuristic visual treatment.
+
+### Shader Parameters
+
+| Effect | Value | Description |
+|--------|-------|-------------|
+| Curvature | 4.5 | Barrel distortion |
+| Aberration | 0.0024 | RGB channel separation |
+| Scan Lines | 0.018 | Horizontal banding |
+| Noise | 0.022 | Film grain |
+| Mono Mix | 0.68 | Grayscale blend |
+| Vignette | 12.0 | Edge darkening |
+| Jitter | 0.0012 | Vertical shimmer |
+
+### Shader Implementation
+
+```glsl
+// CRT curvature
+vec2 curveUV(vec2 uv) {
+  uv = uv * 2.0 - 1.0;
+  vec2 offset = abs(uv.yx) / vec2(uCurvature);
+  uv = uv + uv * offset * offset;
+  return uv * 0.5 + 0.5;
+}
+
+// Chromatic aberration
+vec3 color;
+color.r = texture2D(tDiffuse, uv + vec2(uAberration, 0.0)).r;
+color.g = texture2D(tDiffuse, uv).g;
+color.b = texture2D(tDiffuse, uv - vec2(uAberration, 0.0)).b;
+
+// Scanlines
+float scanline = sin(uv.y * 900.0 + uTime * 2.0) * uScanIntensity;
+color -= scanline;
+```
+
+## Real-Time Backend Integration
+
+Convex provides automatic UI updates when backend state changes.
+
+### State Subscription
+
+```typescript
+import { useQuery } from "convex/react";
+import { api } from "@/convex/_generated/api";
+
+function ClarkPresence() {
+  // Auto-updates when state changes
+  const state = useQuery(api.state.getState);
+
+  // Mood affects animation parameters
+  const moodEffect = getMoodEffect(state?.mood);
+
+  return (
+    <ClarkScene
+      mood={state?.mood}
+      health={state?.health}
+      speaking={isSpeaking}
+      wobbleBoost={moodEffect.wobbleBoost}
+      pulseBoost={moodEffect.pulseBoost}
+    />
+  );
+}
+```
+
+### Event Flow
+
+```
+Tick executes
+    ↓
+State updated in Convex
+    ↓
+useQuery subscription triggers
+    ↓
+Component re-renders with new state
+    ↓
+Animation parameters recalculated
+    ↓
+Character reflects new mood/health
+```
+
+## Background Effects
+
+Animated canvas overlays complement the 3D scene.
+
+### Grid Animation
+
+```typescript
+const grid = {
+  spacing: 36,
+  speed: 8,
+  color: 'rgba(180, 175, 165, 0.08)'
+};
+
+// Moves continuously
+const offset = (Date.now() * speed / 1000) % spacing;
+```
+
+### Orbital Nodes
+
+```typescript
+// 9 dots orbiting at different radii
+const nodes = Array.from({ length: 9 }, (_, i) => ({
+  angle: (i / 9) * Math.PI * 2,
+  radius: 0.34 + (i % 3) * 0.06,
+  speed: 0.0003 + (i % 2) * 0.0001
+}));
+```
+
+### Dynamic Pulses
+
+Triggered on morph events:
+
+| Event | Pulse Color | Duration |
+|-------|-------------|----------|
+| Fish morph | Warm gray | 800ms |
+| Alien morph | Cool cyan | 1000ms |
+| Feed event | Accent color | 600ms |
+
+## Livestream Architecture
+
+For 24/7 presence, the character runs continuously with:
+
+1. **OBS Integration** - Scene capture via browser source
+2. **TTS Output** - Audio routed to stream
+3. **State Polling** - Convex subscriptions drive updates
+4. **Caption Overlay** - Rolling speech text
+
+### Stream Setup
+
+```
+ClarkOS Frontend (Browser)
+    ↓
+OBS Browser Source
+    ↓
+Audio: Desktop audio capture (TTS)
+Video: Window capture (3D scene)
+    ↓
+Stream to Twitch/YouTube
+```
+
+## Performance Considerations
+
+### Optimizations
+
+- WebGL pixel ratio limited to 1.5x
+- Render target at 60% resolution
+- Conditional WebGL availability check
+- Resource disposal on unmount
+- Geometry normal computation throttled
+
+### Frame Budget
+
+Target: 60 FPS
+
+| Operation | Budget |
+|-----------|--------|
+| Vertex morphing | 2ms |
+| Feature positioning | 1ms |
+| Shader pass | 3ms |
+| React render | 2ms |
+| **Total** | ~8ms (headroom for 16.6ms frame) |
+
+## Integration with Agent Stack
+
+The Presence Layer completes the ClarkOS architecture:
+
+```
+┌─────────────────────────────────────────────────────────────┐
+│                     USER INTERFACE                           │
+│  3D Character │ Speech │ Windows │ Visualizations           │
+├─────────────────────────────────────────────────────────────┤
+│                     PRESENCE LAYER                           │
+│  Morph System │ TTS │ CRT Shader │ State Animation          │
+├─────────────────────────────────────────────────────────────┤
+│                     CONVEX REAL-TIME                         │
+│  useQuery subscriptions │ Automatic sync                     │
+├─────────────────────────────────────────────────────────────┤
+│                     AGENT RUNTIME                            │
+│  Tick System │ Consciousness │ Memory │ Plugins              │
+├─────────────────────────────────────────────────────────────┤
+│                     CONVEX BACKEND                           │
+│  State │ Memories │ Knowledge │ Journals                     │
+└─────────────────────────────────────────────────────────────┘
+```
+
+The Presence Layer is what makes ClarkOS agents *visible*. Standard frameworks execute invisibly; ClarkOS agents have a face, a voice, and continuous expression of their internal state.
