@@ -13,6 +13,23 @@ description: "Build autonomous AI agents with persistent memory and real intelli
 
 ClarkOS is a TypeScript-first agent framework built on Convex serverless infrastructure. It provides the architecture for agents that operate continuously, generate creative output, and maintain persistent presence across web and social platforms.
 
+## Framework Comparison
+
+| Capability | ElizaOS | ClarkOS |
+|------------|---------|---------|
+| **Execution Model** | Request-response | Continuous tick cycle |
+| **Memory Types** | 1 (conversation) | 5 (episodic, semantic, emotional, procedural, reflection) |
+| **Memory Deduplication** | Single threshold (0.95) | Type-specific thresholds |
+| **Memory Relationships** | None | Bidirectional linking with 7 relationship types |
+| **Memory Consolidation** | None | Automatic clustering into core knowledge |
+| **State Model** | Minimal | Mood, health, routine, volatility |
+| **Artifact Generation** | On request | Autonomous (text, images, journals) |
+| **Presence** | When invoked | Persistent (livestream, web, social) |
+| **Consciousness Layer** | None | Input filtering, thought synthesis, pattern detection |
+| **Self-Reflection** | None | Metacognitive insight generation |
+| **Time Awareness** | None | Routine-based behavior (morning, day, evening, overnight) |
+| **Backend** | Custom adapters | Convex serverless (real-time, transactional) |
+
 ## Architecture Overview
 
 Standard agent frameworks implement a request-response pattern: the agent waits for input, processes it, and returns output. ClarkOS implements a generative architecture where agents operate on continuous tick cycles independent of external interaction.
