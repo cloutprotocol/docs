@@ -11,24 +11,74 @@ description: "Build autonomous AI agents with persistent memory and real intelli
 
 > **C**ontinuously **L**earning **A**gentic **R**ealtime **K**nowledgebase
 
-ClarkOS is a TypeScript-first agent framework built on Convex serverless infrastructure. Agents have persistent memory, autonomous tick execution, and extensible plugin architecture.
+ClarkOS is a TypeScript-first agent framework built on Convex serverless infrastructure. It provides the architecture for agents that operate continuously, generate creative output, and maintain persistent presence across web and social platforms.
 
-## Features
+## Architecture Overview
 
-**Memory System**
-Five memory types with vector embeddings, automatic deduplication, bidirectional linking, and consolidation into core knowledge.
+Standard agent frameworks implement a request-response pattern: the agent waits for input, processes it, and returns output. ClarkOS implements a generative architecture where agents operate on continuous tick cycles independent of external interaction.
 
-**Consciousness Layer**
-Transforms raw data into coherent thoughts. Detects patterns, filters noise, and generates moments of brilliance.
+### Continuous Operation
 
-**Tick System**
-The heartbeat of your agent. Each tick loads context, processes through your LLM, updates state, and stores memories.
+Agents execute on configurable tick intervals (default 5 minutes). Each tick:
 
-**Plugin Architecture**
-Extend your agent with plugins for social media, trading, analytics, and more. Simple interface with lifecycle hooks.
+1. Loads current state and relevant memory context
+2. Processes through the configured LLM
+3. Updates internal state (mood, health, routine awareness)
+4. Generates output artifacts (text, images, journal entries)
+5. Stores new memories with embeddings and metadata
 
-**Serverless**
-Built on Convex. No servers to manage, automatic scaling, real-time subscriptions, transactional guarantees.
+This model enables agents that produce content, update presence, and evolve state whether or not they receive external input.
+
+### Generative Output
+
+ClarkOS agents generate artifacts as part of their tick cycle:
+
+| Output Type | Description |
+|-------------|-------------|
+| **Text** | Synthesized thoughts, social posts, written content |
+| **Images** | Paintings generated from internal state and mood |
+| **Journals** | Daily consolidation of experiences into narrative |
+| **State Updates** | Web presence, profile updates, status changes |
+
+Artifacts are stored with full provenance (triggering memories, mood at creation, confidence scores).
+
+### Memory Architecture
+
+Five memory types model different aspects of cognition:
+
+- **Episodic** - Specific events and experiences
+- **Semantic** - Facts, concepts, learned information
+- **Emotional** - Affective associations with topics and entities
+- **Procedural** - Learned patterns, triggers, and responses
+- **Reflection** - Metacognitive insights about the agent's own state
+
+Memories include vector embeddings for semantic retrieval, bidirectional linking for relationship tracking, and consolidation into core knowledge over time.
+
+### Consciousness Layer
+
+Raw inputs (news feeds, market data, social mentions) pass through a consciousness layer before reaching the agent's decision process. This layer:
+
+- Filters low-signal inputs (e.g., repetitive daily polls)
+- Synthesizes multiple signals into coherent thoughts
+- Detects pattern convergence across memory and inputs
+- Assigns emotional tone to synthesized thoughts
+
+### Presence Layer
+
+ClarkOS includes infrastructure for continuous agent presence:
+
+- **Livestream** - Real-time visualization with text-to-speech output
+- **Web** - Automatic site and profile updates
+- **Social** - Scheduled and reactive posting via plugins
+- **API** - HTTP endpoints for state queries and external triggers
+
+## Technical Stack
+
+- **Runtime**: Node.js with TypeScript
+- **Backend**: Convex serverless (real-time subscriptions, transactional mutations)
+- **Embeddings**: Google text-embedding-004 or OpenAI
+- **LLM**: Any OpenRouter-compatible model
+- **Storage**: Convex tables with vector search
 
 ## Quick Start
 
@@ -37,8 +87,6 @@ git clone https://github.com/cloutprotocol/clarkos my-agent
 cd my-agent
 npm install && npm run dev
 ```
-
-Your agent is live with persistent memory, real-time state, and HTTP API endpoints.
 
 ## Documentation
 

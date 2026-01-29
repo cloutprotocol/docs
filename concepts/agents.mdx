@@ -7,33 +7,37 @@ description: "Understanding ClarkOS agent architecture"
 
 **C**ontinuously **L**earning **A**gentic **R**ealtime **K**nowledgebase
 
-ClarkOS agents embody this philosophy. They're autonomous AI entities that:
+ClarkOS implements a generative agent architecture. Unlike request-response agents that wait for input and produce output, ClarkOS agents operate on continuous tick cycles, generating artifacts and updating state independent of external interaction.
 
-- **Thinks continuously** through a tick-based execution model
-- **Remembers everything** with a multi-layered memory system
-- **Evolves over time** through learning and self-reflection
-- **Acts independently** via plugins and integrations
+## Reactive vs Generative Agents
 
-Unlike simple chatbots that respond to prompts, ClarkOS agents have persistent state, form memories, and develop personality over time.
+| Aspect | Reactive Agent | Generative Agent (ClarkOS) |
+|--------|----------------|---------------------------|
+| Execution | On input | Continuous tick cycle |
+| Output | Response to prompt | Artifacts from internal state |
+| Memory | Conversation history | Multi-type cognitive model |
+| Presence | When invoked | Persistent (web, social, stream) |
+| State | Stateless or minimal | Mood, health, routine awareness |
 
 ## Agent Lifecycle
 
 ```
-Initialize → Load State → Gather Context → Process → Update State → Store Memories → Execute Actions → Sleep → Repeat
+Initialize → Load State → Gather Context → Process → Update State → Generate Artifacts → Store Memories → Execute Actions → Sleep → Repeat
 ```
 
-1. **Initialize** - Load configuration and plugins
-2. **Load State** - Retrieve current mood, health, routine
-3. **Gather Context** - Pull relevant memories, knowledge, feeds
+1. **Initialize** - Load configuration, connect plugins
+2. **Load State** - Retrieve mood, health, routine, counters
+3. **Gather Context** - Pull relevant memories, knowledge, active feeds
 4. **Process** - Send context to LLM for processing
-5. **Update State** - Apply mood/health changes atomically
-6. **Store Memories** - Create new memories from the tick
-7. **Execute Actions** - Run plugin actions
-8. **Sleep** - Wait for next tick interval
+5. **Update State** - Apply state changes atomically
+6. **Generate Artifacts** - Produce text, images, journal entries
+7. **Store Memories** - Create memories with embeddings and metadata
+8. **Execute Actions** - Run plugin actions (post, trade, notify)
+9. **Sleep** - Wait for next tick interval
 
 ## Agent State
 
-Every agent maintains core state:
+Every agent maintains internal state that persists across ticks:
 
 ```typescript
 interface AgentState {
@@ -50,38 +54,94 @@ interface AgentState {
 }
 ```
 
-### Mood System
+### Mood
 
-Moods affect how your agent processes and acts:
+Mood affects artifact generation and action selection:
 
-| Mood | Description | Behavior |
-|------|-------------|----------|
-| `neutral` | Balanced | Standard processing |
-| `expressive` | Outgoing | Active engagement |
-| `curious` | Inquisitive | Research, exploration |
-| `excited` | High energy | Enthusiastic responses |
-| `reflective` | Thoughtful | Deep analysis |
-| `concerned` | Cautious | Risk awareness |
+| Mood | Characteristics |
+|------|-----------------|
+| `neutral` | Balanced processing, standard output |
+| `expressive` | Higher output frequency, social engagement |
+| `curious` | Research-oriented, exploratory content |
+| `excited` | Elevated activity, enthusiastic tone |
+| `reflective` | Introspective content, journal focus |
+| `concerned` | Risk awareness, cautious actions |
 
-### Health System
+### Health
 
-Health represents the agent's well-being:
+Health represents operational capacity:
 
-- **100**: Peak performance
+- **100**: Full capacity
 - **75**: Target equilibrium
-- **50**: Degraded activity
+- **50**: Reduced output frequency
 - **25**: Minimal function
-- **0**: Hibernation mode
+- **0**: Hibernation (cryo mode)
 
 Health drifts based on routine:
 - Morning: +2 recovery
 - Day: Stable
 - Evening: -1 decline
-- Overnight: -3 hibernation risk
+- Overnight: -3 (hibernation risk)
+
+### Routine Awareness
+
+Agents are aware of time-of-day context:
+
+| Routine | Hours (PST) | Behavior |
+|---------|-------------|----------|
+| `morning` | 6:00 - 12:00 | Recovery, planning |
+| `day` | 12:00 - 18:00 | Peak activity |
+| `evening` | 18:00 - 22:00 | Wind down, reflection |
+| `overnight` | 22:00 - 6:00 | Minimal activity, consolidation |
+
+## Artifact Generation
+
+ClarkOS agents produce artifacts during tick execution:
+
+### Text Artifacts
+
+```typescript
+interface TextArtifact {
+  type: "thought" | "post" | "journal" | "reflection";
+  content: string;
+  tone: "curious" | "excited" | "concerned" | "reflective";
+  triggers: string[];  // Memory IDs that contributed
+  confidence: number;
+}
+```
+
+### Image Artifacts
+
+```typescript
+interface ImageArtifact {
+  type: "painting";
+  url: string;
+  prompt: string;
+  mood: Mood;
+  style: string;
+  metadata: {
+    model: string;
+    seed: number;
+  };
+}
+```
+
+### Journal Artifacts
+
+Daily journals consolidate tick activity into narrative:
+
+```typescript
+interface JournalArtifact {
+  date: string;
+  text: string;
+  insights: string[];
+  sentiment: "positive" | "neutral" | "negative";
+  tickCount: number;
+  themes: string[];
+}
+```
 
 ## Creating an Agent
-
-Using the SDK:
 
 ```typescript
 import { Agent } from "@convex-agent/core";
@@ -94,10 +154,10 @@ const agent = new Agent({
   plugins: []
 });
 
-// Execute a tick
+// Execute a single tick
 await agent.tick();
 
-// Start automatic execution
+// Start continuous execution
 agent.start();
 
 // Stop execution
@@ -105,63 +165,6 @@ agent.stop();
 
 // Get current state
 const state = await agent.getState();
-```
-
-## Agent Methods
-
-### Core Methods
-
-```typescript
-// Start automatic tick execution
-agent.start();
-
-// Stop automatic tick execution
-agent.stop();
-
-// Execute a single tick
-await agent.tick();
-
-// Get current state
-const state = await agent.getState();
-
-// Check if running
-const running = agent.isRunning();
-```
-
-### Plugin Methods
-
-```typescript
-// Register a plugin
-agent.use(myPlugin);
-
-// Get plugin by name
-const plugin = agent.getPlugin("analytics");
-
-// Get all plugins
-const plugins = agent.getPlugins();
-
-// Execute a plugin action
-await agent.executeAction("analytics", "getData", { query: "..." });
-```
-
-### Memory Access
-
-```typescript
-// Access the memory store
-const memoryStore = agent.memory;
-
-// Store a memory
-await memoryStore.store({
-  type: "episodic",
-  content: "Event description",
-  importance: 0.7
-});
-
-// Query memories
-const memories = await memoryStore.query({
-  type: "semantic",
-  limit: 10
-});
 ```
 
 ## Configuration
@@ -172,11 +175,16 @@ import { createConfig } from "@convex-agent/core";
 const config = createConfig({
   tick: {
     intervalMs: 300000,    // 5 minutes
-    timeoutMs: 60000,      // 1 minute max
+    timeoutMs: 60000,      // 1 minute max per tick
   },
   memory: {
     maxMemories: 10000,
-    embeddingModel: "gemini"
+    embeddingModel: "gemini",
+    consolidationInterval: 21600000  // 6 hours
+  },
+  artifacts: {
+    journalTime: "overnight",  // When to generate daily journal
+    imageFrequency: 0.1        // Probability per tick
   }
 });
 
@@ -187,34 +195,51 @@ const agent = new Agent({
 });
 ```
 
-## Best Practices
+## Methods
 
-**Choose appropriate tick intervals**
-- Social agents: 5-15 minutes
-- Analysis agents: 30-60 minutes
-- Monitoring agents: 1-5 minutes
+### Core
 
-**Design for failure**
-- Handle LLM API failures with retries
-- Manage rate limits with queuing
-- Reset invalid state to defaults
+```typescript
+agent.start();              // Begin continuous tick execution
+agent.stop();               // Stop execution
+await agent.tick();         // Execute single tick
+await agent.getState();     // Get current state
+agent.isRunning();          // Check execution status
+```
 
-**Use plugins for actions**
-- Keep core agent logic focused on thinking
-- Delegate actions to testable plugins
+### Plugins
 
-**Monitor health**
-- Alert on health below 25
-- Track mood distribution
-- Log tick failures
+```typescript
+agent.use(plugin);                                    // Register plugin
+agent.getPlugin("name");                              // Get plugin by name
+agent.getPlugins();                                   // List all plugins
+await agent.executeAction("plugin", "action", {});    // Execute plugin action
+```
+
+### Memory
+
+```typescript
+const memoryStore = agent.memory;
+
+await memoryStore.store({
+  type: "episodic",
+  content: "Event description",
+  importance: 0.7
+});
+
+const memories = await memoryStore.query({
+  type: "semantic",
+  limit: 10
+});
+```
 
 ## Next Steps
 
 <CardGroup cols={2}>
   <Card title="Memory System" href="/concepts/memory">
-    How agents remember and learn
+    Multi-type cognitive memory architecture
   </Card>
   <Card title="Tick System" href="/concepts/tick-system">
-    The execution loop
+    Continuous execution model
   </Card>
 </CardGroup>
