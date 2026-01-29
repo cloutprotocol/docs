@@ -3,7 +3,11 @@ title: "Memory Management"
 description: "Advanced techniques for managing agent memory"
 ---
 
-This guide covers advanced memory management strategies for production ClarkOS agents.
+This guide covers memory management strategies for production ClarkOS agents.
+
+<Note>
+  This guide documents the full memory system architecture. Some advanced features (semantic search, consolidation, linking) are being ported to the SDK. Check CLAUDE.md for current implementation status.
+</Note>
 
 ## Memory Lifecycle
 
@@ -180,27 +184,21 @@ const agent = new Agent({
 ### Semantic Search with Filters
 
 ```typescript
-// Combine semantic search with filters
-const memories = await agent.recall("market analysis", {
-  // Semantic options
+// Using the memory store directly
+const memoryStore = agent.memory;
+
+// Query with filters
+const memories = await memoryStore.query({
+  type: "semantic",
   limit: 20,
-  threshold: 0.6,
-
-  // Filters
-  type: ["semantic", "episodic"],
   minImportance: 0.5,
-  recency: "7d",
-  metadata: {
-    source: ["news", "research"],
-  },
-
-  // Scoring weights
-  weights: {
-    similarity: 0.6,
-    importance: 0.2,
-    recency: 0.2,
-  },
 });
+
+// Filter results further
+const relevant = memories.filter(m =>
+  m.importance > 0.5 &&
+  m.tags.some(t => ["news", "research"].includes(t))
+);
 ```
 
 ### Recency Scoring
@@ -220,17 +218,22 @@ function recencyScore(memory: Memory, now: number): number {
 For complex context building:
 
 ```typescript
-// Query multiple aspects and merge
-const technicalMemories = await agent.recall("technical implementation");
-const emotionalMemories = await agent.recall("user sentiment");
-const recentMemories = await agent.recall("recent events", { recency: "24h" });
+const memoryStore = agent.memory;
 
-// Deduplicate and rank
-const allMemories = mergeAndRank([
-  ...technicalMemories,
-  ...emotionalMemories,
-  ...recentMemories,
-]);
+// Query by different types
+const semanticMemories = await memoryStore.query({ type: "semantic", limit: 10 });
+const episodicMemories = await memoryStore.query({ type: "episodic", limit: 10 });
+const proceduralMemories = await memoryStore.query({ type: "procedural", limit: 5 });
+
+// Combine and deduplicate by ID
+const seen = new Set<string>();
+const allMemories = [...semanticMemories, ...episodicMemories, ...proceduralMemories]
+  .filter(m => {
+    if (seen.has(m.id)) return false;
+    seen.add(m.id);
+    return true;
+  })
+  .sort((a, b) => b.importance - a.importance);
 ```
 
 ## Memory Consolidation
@@ -306,17 +309,24 @@ const links = await agent.memory.detectLinks(memoryId);
 ### Causal Chain Tracking
 
 ```typescript
-// When storing a memory caused by another
-await agent.remember({
+// When storing a memory, include the triggering memory in metadata
+const memoryStore = agent.memory;
+
+await memoryStore.store({
   type: "episodic",
   content: "User expressed frustration about slow response",
+  scope: "short_term",
   importance: 0.8,
-  causedBy: previousMemoryId,  // Auto-creates caused_by link
+  salience: 0.7,
+  valence: -0.3,
+  confidence: 0.9,
+  tags: ["user-feedback", "negative"],
+  sourceType: "interaction",
+  metadata: {
+    triggerMemoryId: previousMemoryId,
+    context: "support_interaction"
+  }
 });
-
-// Follow causal chains
-const chain = await agent.memory.getCausalChain(memoryId);
-// Returns ordered list of memories in causal sequence
 ```
 
 ### Contradiction Detection

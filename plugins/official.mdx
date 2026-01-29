@@ -5,395 +5,337 @@ description: "Production-ready plugins maintained by the ClarkOS team"
 
 Official plugins are fully supported, regularly updated, and guaranteed to work with the latest ClarkOS version.
 
+<Note>
+  Official plugins are being developed. The APIs shown here represent the planned interface. Check GitHub for current availability.
+</Note>
+
+## Plugin Interface
+
+All official plugins follow the standard ClarkOS plugin interface:
+
+```typescript
+import type { Plugin, TickContext } from "@convex-agent/core";
+
+const examplePlugin: Plugin = {
+  name: "plugin-name",
+  version: "1.0.0",
+  description: "What the plugin does",
+
+  init(agent) {
+    // Setup on agent start
+  },
+
+  cleanup(agent) {
+    // Cleanup on agent stop
+  },
+
+  onTick(context: TickContext) {
+    // React to each tick
+  },
+
+  actions: {
+    async doSomething(params, agent) {
+      return { success: true };
+    }
+  }
+};
+```
+
 ## Social Plugins
 
-### @clarkos/plugin-twitter
+### Twitter Plugin
 
-Full Twitter integration for posting, replying, and monitoring.
-
-```bash
-npm install @clarkos/plugin-twitter
-```
+Post tweets, reply to mentions, monitor keywords.
 
 ```typescript
-import { twitterPlugin } from "@clarkos/plugin-twitter";
+// plugins/twitter.ts
+import type { Plugin, TickContext } from "@convex-agent/core";
 
-const agent = new Agent({
-  plugins: [
-    twitterPlugin({
-      // Required credentials
-      apiKey: process.env.TWITTER_API_KEY,
-      apiSecret: process.env.TWITTER_API_SECRET,
-      accessToken: process.env.TWITTER_ACCESS_TOKEN,
-      accessSecret: process.env.TWITTER_ACCESS_SECRET,
+interface TwitterConfig {
+  apiKey: string;
+  apiSecret: string;
+  accessToken: string;
+  accessSecret: string;
+  postEnabled: boolean;
+  cooldownMinutes: number;
+}
 
-      // Behavior settings
-      postEnabled: true,
-      replyEnabled: true,
-      minHealthToPost: 50,
-      cooldownMinutes: 30,
+export function createTwitterPlugin(config: TwitterConfig): Plugin {
+  let lastPostTime = 0;
 
-      // Content filters
-      maxLength: 280,
-      bannedWords: ["shill", "guaranteed"],
-    }),
-  ],
-});
+  return {
+    name: "twitter",
+    version: "1.0.0",
+
+    onTick(context: TickContext) {
+      // Only post when expressive
+      if (context.state.mood !== "expressive") return;
+      if (context.state.health < 50) return;
+
+      const now = Date.now();
+      if (now - lastPostTime < config.cooldownMinutes * 60 * 1000) return;
+
+      // Ready to post - implement Twitter API call
+      console.log("Ready to post to Twitter");
+    },
+
+    actions: {
+      async post(params: { content: string }) {
+        // Implement Twitter API call
+        lastPostTime = Date.now();
+        return { success: true, content: params.content };
+      },
+
+      async getMentions() {
+        // Implement Twitter API call
+        return { success: true, mentions: [] };
+      }
+    }
+  };
+}
 ```
 
-**Features:**
-- Post tweets from agent thoughts
-- Reply to mentions
-- Monitor keywords
-- Thread support
-- Media attachments
+### Discord Plugin
 
-**Actions:**
-- `twitter.post(content)` - Post a tweet
-- `twitter.reply(tweetId, content)` - Reply to a tweet
-- `twitter.like(tweetId)` - Like a tweet
-- `twitter.getMentions()` - Get recent mentions
-
----
-
-### @clarkos/plugin-discord
-
-Discord bot integration for community engagement.
-
-```bash
-npm install @clarkos/plugin-discord
-```
+Community engagement through Discord bot.
 
 ```typescript
-import { discordPlugin } from "@clarkos/plugin-discord";
+// plugins/discord.ts
+import type { Plugin, TickContext } from "@convex-agent/core";
 
-const agent = new Agent({
-  plugins: [
-    discordPlugin({
-      token: process.env.DISCORD_BOT_TOKEN,
-      guildId: process.env.DISCORD_GUILD_ID,
-      channelId: process.env.DISCORD_CHANNEL_ID,
+interface DiscordConfig {
+  token: string;
+  guildId: string;
+  channelId: string;
+  respondToMentions: boolean;
+}
 
-      // Behavior
-      respondToMentions: true,
-      postThoughts: true,
-      thoughtChannelId: "channel-for-thoughts",
-    }),
-  ],
-});
-```
+export function createDiscordPlugin(config: DiscordConfig): Plugin {
+  return {
+    name: "discord",
+    version: "1.0.0",
 
-**Features:**
-- Post to channels
-- Respond to mentions
-- Slash commands
-- Reaction handling
-- Role-based permissions
+    init(agent) {
+      console.log("Discord plugin initialized");
+      // Connect to Discord gateway
+    },
 
----
+    cleanup(agent) {
+      // Disconnect from Discord
+    },
 
-### @clarkos/plugin-telegram
-
-Telegram bot for direct user interaction.
-
-```bash
-npm install @clarkos/plugin-telegram
-```
-
-```typescript
-import { telegramPlugin } from "@clarkos/plugin-telegram";
-
-const agent = new Agent({
-  plugins: [
-    telegramPlugin({
-      token: process.env.TELEGRAM_BOT_TOKEN,
-      chatId: process.env.TELEGRAM_CHAT_ID,
-
-      // Who can interact
-      allowedUsers: ["user1", "user2"],
-      adminUsers: ["admin1"],
-    }),
-  ],
-});
+    actions: {
+      async sendMessage(params: { content: string; channelId?: string }) {
+        const channel = params.channelId || config.channelId;
+        // Implement Discord API call
+        return { success: true, channel };
+      }
+    }
+  };
+}
 ```
 
 ## Data Plugins
 
-### @clarkos/plugin-news
+### News Plugin
 
-Multi-source news aggregation with smart filtering.
-
-```bash
-npm install @clarkos/plugin-news
-```
+Multi-source news aggregation.
 
 ```typescript
-import { newsPlugin } from "@clarkos/plugin-news";
+// plugins/news.ts
+import type { Plugin, TickContext } from "@convex-agent/core";
+
+interface NewsSource {
+  name: string;
+  url: string;
+  type?: "rss" | "api";
+}
+
+interface NewsConfig {
+  sources: NewsSource[];
+  refreshMinutes: number;
+  keywords?: string[];
+}
+
+export function createNewsPlugin(config: NewsConfig): Plugin {
+  let lastFetch = 0;
+
+  return {
+    name: "news",
+    version: "1.0.0",
+
+    async onTick(context: TickContext) {
+      const now = Date.now();
+      if (now - lastFetch < config.refreshMinutes * 60 * 1000) return;
+
+      // Fetch from all sources
+      for (const source of config.sources) {
+        try {
+          const items = await fetchSource(source);
+          console.log(`Fetched ${items.length} items from ${source.name}`);
+        } catch (error) {
+          console.error(`Failed to fetch ${source.name}:`, error);
+        }
+      }
+
+      lastFetch = now;
+    },
+
+    actions: {
+      async getLatest(params: { limit?: number }) {
+        return { success: true, items: [] };
+      }
+    }
+  };
+}
+
+async function fetchSource(source: NewsSource) {
+  // Implement RSS/API fetching
+  return [];
+}
+```
+
+### Markets Plugin
+
+Real-time market data.
+
+```typescript
+// plugins/markets.ts
+import type { Plugin } from "@convex-agent/core";
+
+interface MarketsConfig {
+  symbols: string[];
+  refreshMinutes: number;
+}
+
+export function createMarketsPlugin(config: MarketsConfig): Plugin {
+  let cachedPrices: Record<string, number> = {};
+
+  return {
+    name: "markets",
+    version: "1.0.0",
+
+    async init() {
+      // Initial price fetch
+      await this.refreshPrices();
+    },
+
+    async refreshPrices() {
+      // Fetch from CoinGecko or similar
+      const url = `https://api.coingecko.com/api/v3/simple/price?ids=${config.symbols.join(",")}&vs_currencies=usd`;
+      const response = await fetch(url);
+      const data = await response.json();
+      cachedPrices = data;
+    },
+
+    actions: {
+      async getPrice(params: { symbol: string }) {
+        return { success: true, price: cachedPrices[params.symbol] };
+      },
+
+      async getAllPrices() {
+        return { success: true, prices: cachedPrices };
+      }
+    }
+  };
+}
+```
+
+## Building Your Own
+
+Use these patterns to build custom plugins:
+
+```typescript
+import type { Plugin, TickContext } from "@convex-agent/core";
+import type { Agent } from "@convex-agent/core";
+
+interface MyPluginConfig {
+  apiKey: string;
+  enabled: boolean;
+}
+
+export function createMyPlugin(config: MyPluginConfig): Plugin {
+  // Internal state
+  let isConnected = false;
+
+  return {
+    name: "my-plugin",
+    version: "1.0.0",
+    description: "My custom plugin",
+
+    async init(agent: Agent) {
+      if (config.enabled) {
+        // Setup connections, load data
+        isConnected = true;
+      }
+    },
+
+    async cleanup(agent: Agent) {
+      // Close connections, save state
+      isConnected = false;
+    },
+
+    onTick(context: TickContext) {
+      if (!isConnected) return;
+
+      // React to agent state
+      console.log(`Tick: mood=${context.state.mood}`);
+    },
+
+    actions: {
+      async myAction(params: { data: string }, agent: Agent) {
+        if (!isConnected) {
+          return { success: false, error: "Not connected" };
+        }
+        return { success: true, result: params.data };
+      }
+    }
+  };
+}
+```
+
+## Registering Plugins
+
+```typescript
+import { Agent } from "@convex-agent/core";
+import { ConvexBackend } from "@convex-agent/core/backend";
+import { createTwitterPlugin } from "./plugins/twitter";
+import { createNewsPlugin } from "./plugins/news";
 
 const agent = new Agent({
+  backend: new ConvexBackend({ url: process.env.CONVEX_URL! }),
   plugins: [
-    newsPlugin({
+    createTwitterPlugin({
+      apiKey: process.env.TWITTER_API_KEY!,
+      apiSecret: process.env.TWITTER_API_SECRET!,
+      accessToken: process.env.TWITTER_ACCESS_TOKEN!,
+      accessSecret: process.env.TWITTER_ACCESS_SECRET!,
+      postEnabled: true,
+      cooldownMinutes: 60
+    }),
+
+    createNewsPlugin({
       sources: [
-        { name: "coindesk", url: "https://coindesk.com/rss" },
-        { name: "techcrunch", url: "https://techcrunch.com/feed" },
-        { name: "hackernews", type: "hackernews", minScore: 100 },
+        { name: "coindesk", url: "https://coindesk.com/rss" }
       ],
+      refreshMinutes: 15
+    })
+  ]
+});
 
-      // Filtering
-      keywords: ["ethereum", "ai", "crypto"],
-      excludeKeywords: ["sponsored", "advertisement"],
-
-      // Schedule
-      refreshIntervalMinutes: 15,
-      maxItemsPerSource: 10,
-
-      // Processing
-      generateEmbeddings: true,
-      extractEntities: true,
-    }),
-  ],
+// Execute plugin action
+await agent.executeAction("twitter", "post", {
+  content: "Hello from ClarkOS!"
 });
 ```
-
-**Features:**
-- RSS/Atom feed support
-- Hacker News integration
-- Reddit subreddit monitoring
-- Keyword filtering
-- Automatic embedding generation
-- Entity extraction
-
----
-
-### @clarkos/plugin-markets
-
-Real-time market data integration.
-
-```bash
-npm install @clarkos/plugin-markets
-```
-
-```typescript
-import { marketsPlugin } from "@clarkos/plugin-markets";
-
-const agent = new Agent({
-  plugins: [
-    marketsPlugin({
-      // Crypto markets
-      crypto: {
-        provider: "coingecko",
-        symbols: ["BTC", "ETH", "SOL"],
-        refreshMinutes: 5,
-      },
-
-      // Stock markets
-      stocks: {
-        provider: "polygon",
-        apiKey: process.env.POLYGON_API_KEY,
-        symbols: ["AAPL", "MSFT", "NVDA"],
-      },
-
-      // Prediction markets
-      predictions: {
-        provider: "polymarket",
-        categories: ["politics", "crypto", "tech"],
-      },
-    }),
-  ],
-});
-```
-
-**Features:**
-- Real-time price data
-- Historical data
-- Market sentiment
-- Prediction market integration
-
-## Action Plugins
-
-### @clarkos/plugin-trading
-
-Paper and live trading capabilities.
-
-```bash
-npm install @clarkos/plugin-trading
-```
-
-```typescript
-import { tradingPlugin } from "@clarkos/plugin-trading";
-
-const agent = new Agent({
-  plugins: [
-    tradingPlugin({
-      // Paper trading (safe)
-      mode: "paper",
-      initialBalance: 10000,
-
-      // Or live trading (be careful!)
-      // mode: "live",
-      // exchange: "binance",
-      // apiKey: process.env.BINANCE_API_KEY,
-      // apiSecret: process.env.BINANCE_API_SECRET,
-
-      // Risk management
-      maxPositionSize: 0.1,  // 10% of portfolio
-      stopLossPercent: 5,
-      takeProfitPercent: 15,
-
-      // Behavior
-      autoTrade: false,  // Require manual confirmation
-      requireConfidence: 0.8,
-    }),
-  ],
-});
-```
-
-**Actions:**
-- `trading.buy(symbol, amount, options)`
-- `trading.sell(symbol, amount, options)`
-- `trading.getPortfolio()`
-- `trading.getHistory()`
-- `trading.cancelOrder(orderId)`
-
----
-
-### @clarkos/plugin-images
-
-AI image generation for visual content.
-
-```bash
-npm install @clarkos/plugin-images
-```
-
-```typescript
-import { imagesPlugin } from "@clarkos/plugin-images";
-
-const agent = new Agent({
-  plugins: [
-    imagesPlugin({
-      provider: "replicate",
-      apiKey: process.env.REPLICATE_API_KEY,
-      model: "stability-ai/sdxl",
-
-      // Defaults
-      defaultWidth: 1024,
-      defaultHeight: 1024,
-
-      // Style
-      stylePrefix: "digital art, vibrant colors,",
-      negativePrompt: "blurry, low quality",
-    }),
-  ],
-});
-```
-
-**Actions:**
-- `images.generate(prompt, options)`
-- `images.upscale(imageUrl)`
-- `images.variations(imageUrl)`
-
-## Utility Plugins
-
-### @clarkos/plugin-scheduler
-
-Advanced scheduling beyond crons.
-
-```bash
-npm install @clarkos/plugin-scheduler
-```
-
-```typescript
-import { schedulerPlugin } from "@clarkos/plugin-scheduler";
-
-const agent = new Agent({
-  plugins: [
-    schedulerPlugin({
-      tasks: [
-        {
-          name: "morning-briefing",
-          schedule: "0 9 * * *",  // 9 AM daily
-          action: async (ctx) => {
-            await ctx.action("twitter.post", "Good morning!");
-          },
-        },
-        {
-          name: "market-update",
-          schedule: "0 */4 * * *",  // Every 4 hours
-          action: async (ctx) => {
-            const markets = await ctx.action("markets.getSummary");
-            // Process and post...
-          },
-        },
-      ],
-    }),
-  ],
-});
-```
-
----
-
-### @clarkos/plugin-webhooks
-
-Receive external webhooks.
-
-```bash
-npm install @clarkos/plugin-webhooks
-```
-
-```typescript
-import { webhooksPlugin } from "@clarkos/plugin-webhooks";
-
-const agent = new Agent({
-  plugins: [
-    webhooksPlugin({
-      secret: process.env.WEBHOOK_SECRET,
-      handlers: {
-        "github/push": async (payload, ctx) => {
-          await ctx.remember({
-            type: "episodic",
-            content: `New commit: ${payload.commits[0].message}`,
-          });
-        },
-        "stripe/payment": async (payload, ctx) => {
-          // Handle payment events
-        },
-      },
-    }),
-  ],
-});
-```
-
-## Installation
-
-All official plugins follow the same pattern:
-
-```bash
-# Install the plugin
-npm install @clarkos/plugin-NAME
-
-# Import and configure
-import { NAMEPlugin } from "@clarkos/plugin-NAME";
-
-const agent = new Agent({
-  plugins: [NAMEPlugin({ ...config })],
-});
-```
-
-## Support
-
-Official plugins are supported through:
-
-- GitHub Issues on each plugin repo
-- Discord #plugins channel
-- Documentation at docs.clarkos.dev/plugins
 
 ## Next Steps
 
 <CardGroup cols={2}>
-  <Card title="Community Plugins" icon="users" href="/plugins/community">
-    Explore community-built plugins.
+  <Card title="Community Plugins" href="/plugins/community">
+    Explore community-built plugins
   </Card>
-  <Card title="Build Your Own" icon="hammer" href="/guides/custom-plugins">
-    Create custom plugins.
+  <Card title="Build Your Own" href="/guides/custom-plugins">
+    Create custom plugins
   </Card>
 </CardGroup>
