@@ -48,12 +48,14 @@ Services run independently, caching data:
 
 | Service | Description | Reference |
 |---------|-------------|-----------|
+| `ChanService` | 4chan SFW board threads | `src/services/chan.ts` |
 | `NewsService` | RSS/API news aggregation | `src/services/news.ts` |
 | `MarketService` | Crypto price data | `src/services/market.ts` |
 
 ```typescript
-import { createNewsService, createMarketService } from './src/services';
+import { createChanService, createNewsService, createMarketService } from './src/services';
 
+const chan = createChanService({ options: { boards: ['g', 'sci'] } });
 const news = createNewsService();
 const market = createMarketService();
 ```

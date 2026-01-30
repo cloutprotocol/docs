@@ -3,7 +3,7 @@ title: "Built-in Services"
 description: "Data services included with the ink SDK"
 ---
 
-The ink SDK includes two built-in services for common data needs. Services run independently of the tick cycle, caching data for efficient access.
+The ink SDK includes three built-in services for common data needs. Services run independently of the tick cycle, caching data for efficient access.
 
 **Reference:** `src/services/` directory
 
@@ -22,6 +22,47 @@ All services implement this interface:
 
 **Reference:** `Service` interface in `src/services/types.ts`
 
+## ChanService
+
+Fetches trending threads from SFW 4chan boards. Scores threads by activity (replies + images).
+
+| Config | Default | Description |
+|--------|---------|-------------|
+| `refreshInterval` | 10 min | Time between fetches |
+| `maxCacheAge` | 30 min | Stale cache threshold |
+| `options.boards` | g, sci, biz | Boards to monitor |
+
+**Available SFW boards:** g, sci, lit, mu, his, fit, ck, fa, tg, biz, tv, vg
+
+**Data returned:**
+```typescript
+interface ChanThread {
+  id: string;           // "board-threadNo"
+  board: string;        // e.g., "g"
+  subject: string;      // Thread subject
+  content: string;      // Opening post (truncated)
+  url: string;          // Link to thread
+  replies: number;
+  images: number;
+  timestamp: number;
+  activityScore: number; // replies + images (capped)
+}
+```
+
+**Usage:**
+```typescript
+import { createChanService } from './src/services';
+
+const chan = createChanService({
+  options: { boards: ['g', 'sci', 'biz'] }
+});
+
+await chan.start();
+const threads = await chan.getData<ChanThread[]>();
+```
+
+**Reference:** `src/services/chan.ts`
+
 ## NewsService
 
 Fetches and caches news from RSS feeds and APIs.
@@ -32,13 +73,19 @@ Fetches and caches news from RSS feeds and APIs.
 | `maxCacheAge` | 30 min | Stale cache threshold |
 | `options.sources` | BBC, CoinDesk, TechCrunch | News sources |
 
-**Default sources:**
+**Data returned:**
 ```typescript
-const DEFAULT_SOURCES = [
-  { name: 'bbc', url: 'https://feeds.bbci.co.uk/news/technology/rss.xml', parser: 'rss' },
-  { name: 'coindesk', url: 'https://www.coindesk.com/arc/outboundfeeds/rss/', parser: 'rss' },
-  { name: 'techcrunch', url: 'https://techcrunch.com/feed/', parser: 'rss' },
-];
+interface NewsItem {
+  id: string;
+  headline: string;
+  summary?: string;
+  source: string;
+  url?: string;
+  publishedAt: number;
+  importance?: number;
+  sentiment?: number;
+  topics?: string[];
+}
 ```
 
 **Usage:**
@@ -110,31 +157,13 @@ const data = await market.getData<MarketData>();
 import { createBuiltinServices } from './src/services';
 
 const services = createBuiltinServices();
-// Returns [NewsService, MarketService]
+// Returns [NewsService, MarketService, ChanService]
 ```
-
-## Custom Data Fetcher
-
-Services expect a custom fetcher for real data:
-
-```typescript
-const news = createNewsService({
-  options: {
-    fetcher: async (source) => {
-      // Implement actual RSS/API fetching
-      const response = await fetch(source.url);
-      return parseRSS(await response.text());
-    }
-  }
-});
-```
-
-Without a fetcher, services return empty data with a console warning.
 
 ## Service Health
 
 ```typescript
-const health = news.getHealth();
+const health = chan.getHealth();
 // { status, lastRefresh, lastError, refreshCount, errorCount, cacheSize }
 ```
 
