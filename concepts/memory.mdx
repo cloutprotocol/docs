@@ -206,17 +206,18 @@ GET /memories/linked?id=...
 ## SDK Status
 
 Current SDK implementation:
-- 3 memory types (episodic, semantic, procedural)
-- Basic memory storage and retrieval
-- Memory store interface
+- 5 memory types (episodic, semantic, emotional, procedural, reflection)
+- Memory store with get/store/search/update/delete/getStats
+- Type-specific deduplication thresholds (0.88-0.97)
+- Three-tier dedup: exact match → Jaccard similarity → embedding similarity
+- Salience and confidence scoring utilities
+- Cosine similarity for embeddings
 
 Expanding to include:
-- Emotional and reflection memory types
-- Vector embeddings and semantic search
-- Bidirectional linking
-- Consolidation engine
+- Full bidirectional linking
+- Consolidation engine with clustering
 - Self-reflection generation
-- Type-specific deduplication
+- Core memory formation
 
 ## Next Steps
 

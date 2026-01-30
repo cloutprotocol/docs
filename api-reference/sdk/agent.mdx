@@ -41,14 +41,24 @@ interface AgentOptions {
 }
 
 interface AgentConfig {
+  name: string;              // Default: "Agent"
+  backend: {
+    type: "convex" | "memory";
+    url?: string;
+    tickToken?: string;
+    writeToken?: string;
+  };
   tick: {
-    intervalMs: number;    // Default: 300000 (5 min)
-    timeoutMs: number;     // Default: 60000 (1 min)
+    interval: number;        // Default: 60000 (1 min)
+    auto: boolean;           // Default: false
+    maxRetries: number;      // Default: 3
   };
   memory: {
-    maxMemories: number;
-    embeddingModel: string;
+    consolidationThreshold: number;  // Default: 100
+    decayRate: number;               // Default: 0.1
+    maxShortTerm: number;            // Default: 50
   };
+  verbose: boolean;          // Default: false
 }
 ```
 
@@ -139,8 +149,8 @@ await memoryStore.store({
   sourceType: "tick"
 });
 
-// Query memories
-const memories = await memoryStore.query({
+// Get memories with filters
+const memories = await memoryStore.get({
   type: "semantic",
   limit: 10
 });
@@ -152,17 +162,22 @@ const memories = await memoryStore.query({
 // Access the knowledge store
 const knowledgeStore = agent.knowledge;
 
-// Store knowledge
-await knowledgeStore.store({
+// Add knowledge
+await knowledgeStore.add({
+  text: "Article content...",
   type: "news",
-  textExcerpt: "Article content...",
   source: "coindesk"
 });
 
-// Query knowledge
-const items = await knowledgeStore.query({
-  type: "news",
+// Get knowledge with filters
+const items = await knowledgeStore.get({
   limit: 20
+});
+
+// Search knowledge
+const results = await knowledgeStore.search({
+  query: "ethereum",
+  limit: 10
 });
 ```
 
@@ -253,16 +268,23 @@ agent.stop();
 ## SDK Roadmap
 
 Current implementation:
-- Agent class with tick/start/stop
-- Plugin registration and execution
-- Memory store interface
-- Knowledge store interface
+- Agent class with tick/start/stop/isRunning
+- Plugin registration with lifecycle hooks (init, cleanup, onTick)
+- Plugin actions with executeAction()
+- Memory store with get/store/search/update/delete/getStats
+- Knowledge store with add/get/search/getById/getStats
+- Convex and in-memory backend support
+- Zod-validated configuration
+- LLM client (OpenRouter, OpenAI, Anthropic, custom)
+- Embedding generation (Gemini, OpenAI)
+- Type-specific memory deduplication
 
 Expanding to include:
+- Memory linking and relationship tracking
+- Memory consolidation into core memories
+- Self-reflection generation
 - Event emitter for state changes
 - Consciousness processing integration
-- Advanced memory operations (dedup, linking)
-- Configuration validation with Zod
 
 ## Next Steps
 

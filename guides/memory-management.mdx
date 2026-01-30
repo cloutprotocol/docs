@@ -79,55 +79,62 @@ const embeddings = await agent.memory.batchEmbed(texts, {
 
 ### Type-Specific Thresholds
 
-Customize deduplication per memory type:
+The SDK uses type-specific deduplication thresholds (defined in `src/memory/deduplication.ts`):
 
 ```typescript
-const agent = new Agent({
-  memory: {
-    deduplication: {
-      enabled: true,
-      thresholds: {
-        episodic: 0.92,   // Events can be similar but distinct
-        semantic: 0.88,   // Facts should consolidate
-        emotional: 0.85,  // Feelings merge more easily
-        procedural: 0.90, // Patterns need precision
-        reflection: 0.95, // Self-insights should be unique
-      },
-    },
+// Default thresholds in the SDK
+const DEDUP_THRESHOLDS = {
+  episodic: 0.92,    // Events can be similar but distinct
+  semantic: 0.95,    // Facts need high similarity to merge
+  emotional: 0.88,   // Feelings merge more easily
+  procedural: 0.97,  // Patterns need near-exact match
+  reflection: 0.90,  // Self-insights should be unique
+};
+```
+
+You can override these when checking duplication:
+
+```typescript
+import { checkDuplication } from "./src/memory/deduplication";
+
+const result = checkDuplication(newMemory, existingMemories, {
+  typeThresholds: {
+    semantic: 0.90,  // More aggressive semantic dedup
   },
 });
 ```
 
 ### Custom Deduplication Logic
 
+Use the SDK's deduplication utilities directly:
+
 ```typescript
-const agent = new Agent({
-  memory: {
-    deduplication: {
-      enabled: true,
-      customCheck: async (newMemory, existingMemories) => {
-        // Find most similar
-        const similarities = existingMemories.map(m => ({
-          memory: m,
-          similarity: cosineSimilarity(newMemory.embedding, m.embedding),
-        }));
+import {
+  checkDuplication,
+  findSimilarMemories,
+  DEDUP_THRESHOLDS
+} from "./src/memory/deduplication";
+import { cosineSimilarity } from "./src/llm/embeddings";
 
-        const mostSimilar = similarities.sort((a, b) =>
-          b.similarity - a.similarity
-        )[0];
+// Check if a new memory is a duplicate
+const result = checkDuplication(
+  { content: "New memory content", type: "semantic", embedding: newEmbedding },
+  existingMemories,
+  { typeThresholds: DEDUP_THRESHOLDS }
+);
 
-        // Custom logic: also check metadata
-        if (mostSimilar.similarity > 0.9) {
-          if (newMemory.metadata.source === mostSimilar.memory.metadata.source) {
-            return { isDuplicate: true, existingId: mostSimilar.memory._id };
-          }
-        }
+if (!result.isUnique) {
+  console.log("Duplicate found:", result.reason);
+  console.log("Matched memory:", result.matchedMemoryId);
+  console.log("Similarity:", result.similarity);
+}
 
-        return { isDuplicate: false };
-      },
-    },
-  },
-});
+// Find similar memories without strict deduplication
+const similar = findSimilarMemories(
+  { content: "Query", type: "semantic", embedding: queryEmbedding },
+  existingMemories,
+  { limit: 5, minSimilarity: 0.6 }
+);
 ```
 
 ## Importance Scoring
@@ -181,14 +188,14 @@ const agent = new Agent({
 
 ## Retrieval Optimization
 
-### Semantic Search with Filters
+### Get with Filters
 
 ```typescript
 // Using the memory store directly
 const memoryStore = agent.memory;
 
-// Query with filters
-const memories = await memoryStore.query({
+// Get with filters
+const memories = await memoryStore.get({
   type: "semantic",
   limit: 20,
   minImportance: 0.5,
@@ -199,6 +206,16 @@ const relevant = memories.filter(m =>
   m.importance > 0.5 &&
   m.tags.some(t => ["news", "research"].includes(t))
 );
+```
+
+### Semantic Search
+
+```typescript
+// Search by text query
+const memories = await memoryStore.search({
+  query: "ethereum market trends",
+  limit: 10,
+});
 ```
 
 ### Recency Scoring
@@ -213,17 +230,17 @@ function recencyScore(memory: Memory, now: number): number {
 }
 ```
 
-### Multi-Query Retrieval
+### Multi-Type Retrieval
 
 For complex context building:
 
 ```typescript
 const memoryStore = agent.memory;
 
-// Query by different types
-const semanticMemories = await memoryStore.query({ type: "semantic", limit: 10 });
-const episodicMemories = await memoryStore.query({ type: "episodic", limit: 10 });
-const proceduralMemories = await memoryStore.query({ type: "procedural", limit: 5 });
+// Get by different types
+const semanticMemories = await memoryStore.get({ type: "semantic", limit: 10 });
+const episodicMemories = await memoryStore.get({ type: "episodic", limit: 10 });
+const proceduralMemories = await memoryStore.get({ type: "procedural", limit: 5 });
 
 // Combine and deduplicate by ID
 const seen = new Set<string>();
@@ -238,172 +255,163 @@ const allMemories = [...semanticMemories, ...episodicMemories, ...proceduralMemo
 
 ## Memory Consolidation
 
-### Automatic Consolidation
+<Note>
+Memory consolidation is implemented in the CLARK backend but not yet exposed in the base SDK. The patterns below show the target API design.
+</Note>
+
+### Consolidation Concept
+
+Consolidation groups related memories into "core memories" - summarized knowledge that represents patterns across many individual memories.
 
 ```typescript
-const agent = new Agent({
-  memory: {
-    consolidation: {
-      enabled: true,
-      interval: 6 * 60 * 60 * 1000,  // Every 6 hours
+interface ConsolidationResult {
+  processed: number;
+  consolidated: number;
+  decayed: number;
+}
 
-      // Clustering settings
-      clustering: {
-        minClusterSize: 3,
-        maxClusterSize: 20,
-        similarityThreshold: 0.7,
-      },
-
-      // Core memory creation
-      coreMemory: {
-        minConfidence: 0.7,
-        maxCoreMemories: 100,
-      },
-    },
-  },
-});
+interface CoreMemory {
+  theme: string;
+  summary: string;
+  insights: string[];
+  sourceMemoryIds: string[];
+  importance: number;
+}
 ```
 
-### Manual Consolidation
+### CLARK Backend API
+
+The CLARK demonstration backend exposes consolidation via HTTP:
+
+```bash
+# Trigger consolidation
+POST /memories/consolidate
+
+# Get core memories
+GET /memories/core
+```
+
+### Future SDK API
+
+The SDK will expose consolidation with this interface:
 
 ```typescript
 // Trigger consolidation manually
 const result = await agent.memory.consolidate();
 
-console.log(`Processed ${result.memoriesProcessed} memories`);
-console.log(`Created ${result.coreMemoriesCreated} core memories`);
-console.log(`Decayed ${result.memoriesDecayed} memories`);
-```
-
-### Cluster Analysis
-
-```typescript
-// Get memory clusters
-const clusters = await agent.memory.getClusters({
-  minSize: 3,
-  threshold: 0.7,
-});
-
-for (const cluster of clusters) {
-  console.log(`Cluster: ${cluster.theme}`);
-  console.log(`  Size: ${cluster.memories.length}`);
-  console.log(`  Avg importance: ${cluster.avgImportance}`);
-}
+console.log(`Processed ${result.processed} memories`);
+console.log(`Consolidated ${result.consolidated} memories`);
+console.log(`Decayed ${result.decayed} memories`);
 ```
 
 ## Memory Linking
 
-### Automatic Link Detection
+<Note>
+Memory linking is implemented in the CLARK backend schema but the detection API is not yet exposed in the base SDK. The schema supports 7 relationship types.
+</Note>
+
+### Link Types
+
+The system supports these relationship types:
 
 ```typescript
-// Detect links for a new memory
-const links = await agent.memory.detectLinks(memoryId);
-
-// Returns detected relationships
-// [
-//   { targetId: "xxx", type: "related_to", strength: 0.85 },
-//   { targetId: "yyy", type: "elaborates", strength: 0.72 },
-// ]
+type LinkType =
+  | "caused_by"       // Causal relationship
+  | "related_to"      // General association
+  | "contradicts"     // Conflicting information
+  | "elaborates"      // Adds detail
+  | "supersedes"      // Replaces old info
+  | "temporal_before" // Happened before
+  | "temporal_after"; // Happened after
 ```
 
-### Causal Chain Tracking
+### CLARK Backend Schema
+
+Links are stored in the `memory_links` table:
 
 ```typescript
-// When storing a memory, include the triggering memory in metadata
-const memoryStore = agent.memory;
-
-await memoryStore.store({
-  type: "episodic",
-  content: "User expressed frustration about slow response",
-  scope: "short_term",
-  importance: 0.8,
-  salience: 0.7,
-  valence: -0.3,
-  confidence: 0.9,
-  tags: ["user-feedback", "negative"],
-  sourceType: "interaction",
-  metadata: {
-    triggerMemoryId: previousMemoryId,
-    context: "support_interaction"
-  }
-});
+// Convex schema
+memory_links: defineTable({
+  sourceMemoryId: v.string(),
+  targetMemoryId: v.string(),
+  linkType: v.union(...),
+  strength: v.number(),
+  confidence: v.number(),
+  createdAt: v.number(),
+})
 ```
 
-### Contradiction Detection
+### Finding Similar Memories (SDK)
+
+While link detection isn't exposed, you can find similar memories:
 
 ```typescript
-// Check for contradicting memories
-const contradictions = await agent.memory.findContradictions(
-  "ETH price will increase"
+import { findSimilarMemories } from "./src/memory/deduplication";
+
+const similar = findSimilarMemories(
+  { content: "Query text", type: "semantic", embedding: queryEmbedding },
+  existingMemories,
+  { limit: 5, minSimilarity: 0.7 }
 );
 
-// Returns memories with conflicting information
-for (const c of contradictions) {
-  console.log(`Contradicts: ${c.memory.content}`);
-  console.log(`Confidence: ${c.confidence}`);
+for (const mem of similar) {
+  console.log(`${mem.content} (similarity: ${mem.similarity})`);
 }
 ```
 
 ## Memory Maintenance
 
-### Pruning Old Memories
+### Memory Statistics (SDK)
 
-```typescript
-// Remove low-importance, old memories
-const pruned = await agent.memory.prune({
-  olderThan: 30 * 24 * 60 * 60 * 1000,  // 30 days
-  maxImportance: 0.3,
-  excludeTypes: ["reflection", "procedural"],
-  dryRun: true,  // Preview first
-});
-
-console.log(`Would prune ${pruned.count} memories`);
-
-// Actually prune
-await agent.memory.prune({ ...options, dryRun: false });
-```
-
-### Memory Statistics
+The SDK provides basic statistics:
 
 ```typescript
 const stats = await agent.memory.getStats();
 
+console.log("Total:", stats.total);
+console.log("By type:", stats.byType);
+console.log("By scope:", stats.byScope);
+console.log("Average importance:", stats.averageImportance);
+
+// Returns:
 // {
 //   total: 5234,
-//   byType: {
-//     episodic: 2100,
-//     semantic: 1800,
-//     emotional: 650,
-//     procedural: 400,
-//     reflection: 284
-//   },
-//   avgImportance: 0.58,
-//   avgConfidence: 0.72,
-//   oldestMemory: 1704067200000,
-//   newestMemory: 1706400000000,
-//   storageSize: "45.2 MB",
-//   coreMemories: 89,
-//   links: 12450
+//   byType: { episodic: 2100, semantic: 1800, emotional: 650, procedural: 400, reflection: 284 },
+//   byScope: { short_term: 3000, working: 500, long_term: 1734 },
+//   averageImportance: 0.58
 // }
 ```
 
-### Health Monitoring
+### Update and Delete (SDK)
 
 ```typescript
-// Set up alerts
-agent.memory.on("alert", (alert) => {
-  switch (alert.type) {
-    case "high_memory_count":
-      console.warn(`Memory count high: ${alert.count}`);
-      break;
-    case "low_dedup_rate":
-      console.warn(`Low dedup rate: ${alert.rate}%`);
-      break;
-    case "consolidation_failed":
-      console.error(`Consolidation failed: ${alert.error}`);
-      break;
-  }
+// Update a memory
+await agent.memory.update("memory_id", {
+  importance: 0.9,
+  tags: ["verified", "important"],
 });
+
+// Delete a memory
+await agent.memory.delete("memory_id");
+```
+
+### Pruning (CLARK Backend)
+
+<Note>
+Pruning is implemented in the CLARK backend but not exposed in the base SDK.
+</Note>
+
+The CLARK backend provides pruning via the knowledge lifecycle manager:
+
+```typescript
+// CLARK backend pattern
+import { KnowledgeLifecycleManager } from "./backend/convex/core";
+
+const manager = new KnowledgeLifecycleManager(config);
+const result = await manager.prune(items);
+
+console.log(`Pruned ${result.pruned} items`);
+console.log(`Kept ${result.kept} items`);
 ```
 
 ## Best Practices

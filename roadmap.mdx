@@ -61,28 +61,31 @@ Endpoints exist in backend but not exposed via HTTP router:
 
 | Component | Status | Notes |
 |-----------|--------|-------|
-| Agent runtime | Complete | `src/core/agent.ts` |
-| Tick execution | Complete | `src/core/tick.ts` |
-| Plugin system | Complete | Dependency resolution, lifecycle hooks |
-| Configuration | Complete | Zod-validated, env loading |
-| Memory store | Basic | CRUD operations only |
-| Knowledge store | Basic | Text-based queries |
-| Backend abstraction | Complete | Convex + in-memory |
+| Agent runtime | Complete | `src/core/agent.ts` - Agent class with tick/start/stop |
+| Tick execution | Complete | `src/core/tick.ts` - calculateRoutine, calculateHealthDrift |
+| Plugin system | Complete | Dependency resolution, lifecycle hooks, actions |
+| Configuration | Complete | Zod-validated, env loading (`src/core/config.ts`) |
+| Memory store | Complete | get/store/search/update/delete/getStats |
+| Memory deduplication | Complete | Type-specific thresholds, 3-tier strategy |
+| Knowledge store | Complete | add/get/search/getById/getStats |
+| Backend abstraction | Complete | Convex + in-memory backends |
+| LLM integration | Complete | OpenRouter, OpenAI, Anthropic, custom |
+| Embedding generation | Complete | Gemini and OpenAI support |
+| Convex schema | Complete | Full schema with vector indexes |
 | Terminal UI | Complete | React Ink components |
-| CLI | Complete | `convex-agent` command |
+| Character system | Complete | Loader, traits, routines |
+| Action system | Complete | Registry with builtin actions |
+| Template engine | Complete | Tick, reflection, consciousness templates |
+| Service layer | Complete | News, Market services |
 
 ### Not Implemented
 
 | Feature | Priority | Dependency |
 |---------|----------|------------|
-| Embedding generation | High | Requires Gemini/OpenAI key |
-| Memory deduplication | High | Requires embeddings |
-| Memory consolidation | High | Requires embeddings |
-| Memory linking | Medium | Requires dedup first |
-| Self-reflection | Medium | Requires consolidation |
-| Consciousness layer | Medium | Port from CLARK |
-| LLM integration | High | Requires OpenRouter/model |
-| Convex schema | High | Required for persistence |
+| Memory linking | Medium | Schema exists, API not exposed |
+| Memory consolidation | Medium | Backend exists in CLARK |
+| Self-reflection | Medium | Template exists, API not exposed |
+| Consciousness layer | Medium | Port from CLARK backend |
 
 ---
 

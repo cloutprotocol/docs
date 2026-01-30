@@ -5,7 +5,7 @@ description: "SDK reference for the memory system"
 
 The memory store provides the interface for storing, retrieving, and managing agent memories.
 
-## MemoryStore Class
+## MemoryStore Interface
 
 ### Getting the Store
 
@@ -13,13 +13,27 @@ The memory store provides the interface for storing, retrieving, and managing ag
 // From agent instance
 const memory = agent.memory;
 
-// Or create standalone
-import { createMemoryStore } from "./src";
+// Or create standalone with a backend
+import { createMemoryStore, ConvexBackend } from "./src";
 
-const memory = createMemoryStore({
-  convexUrl: process.env.CONVEX_URL!,
-  embeddingModel: "gemini",
-});
+const backend = new ConvexBackend({ url: process.env.CONVEX_URL! });
+const memory = createMemoryStore(backend);
+```
+
+## Interface Methods
+
+The MemoryStore interface provides these methods:
+
+```typescript
+interface MemoryStore {
+  store(options: StoreMemoryOptions): Promise<Memory>;
+  get(options?: GetMemoriesOptions): Promise<Memory[]>;
+  search(options: SearchMemoriesOptions): Promise<Memory[]>;
+  getById(id: string): Promise<Memory | null>;
+  update(id: string, updates: Partial<Memory>): Promise<Memory>;
+  delete(id: string): Promise<void>;
+  getStats(): Promise<MemoryStats>;
+}
 ```
 
 ## Storing Memories
@@ -27,9 +41,9 @@ const memory = createMemoryStore({
 ### Basic Store
 
 ```typescript
-const memoryId = await memory.store({
-  type: "episodic",
+const memory = await memoryStore.store({
   content: "Met Alice at the conference",
+  type: "episodic",
   importance: 0.7,
 });
 ```
@@ -37,291 +51,137 @@ const memoryId = await memory.store({
 ### Full Options
 
 ```typescript
-const memoryId = await memory.store({
+const memory = await memoryStore.store({
   // Required
-  type: "episodic",
   content: "Met Alice at the conference",
 
-  // Scoring (optional, auto-calculated if not provided)
-  importance: 0.7,
-  salience: 0.6,
-  confidence: 0.9,
+  // Optional with defaults
+  type: "episodic",        // Default: "semantic"
+  scope: "short_term",     // Default: "short_term"
+  importance: 0.7,         // Default: 0.5
+  tags: ["networking"],    // Default: []
+  sourceType: "interaction", // Default: "user"
+  sourceId: "event-123",   // Optional
 
-  // Metadata
-  metadata: {
-    context: "networking event",
-    mood: "expressive",
-    routine: "evening",
-    trigger: "conversation",
-    entities: ["Alice", "conference", "crypto"],
-    source: "direct interaction",
-  },
-
-  // Linking
-  causedBy: "previous_memory_id",
+  // Deduplication control
+  deduplicate: true,       // Default: true
 });
 ```
 
-### Store with Deduplication
+### Store Options Type
 
 ```typescript
-const result = await memory.storeWithDedup({
-  type: "semantic",
-  content: "Ethereum uses proof-of-stake",
-  importance: 0.6,
-});
-
-if (result.deduplicated) {
-  console.log("Similar memory exists:", result.existingId);
-  console.log("Similarity:", result.similarity);
-} else {
-  console.log("New memory created:", result.memoryId);
+interface StoreMemoryOptions {
+  content: string;
+  type?: MemoryType;
+  scope?: MemoryScope;
+  importance?: number;
+  tags?: string[];
+  sourceType?: string;
+  sourceId?: string;
+  deduplicate?: boolean;
 }
 ```
 
 ## Retrieving Memories
 
-### Semantic Search
+### Get with Filters
 
 ```typescript
-const memories = await memory.recall("market trends", {
+const memories = await memoryStore.get({
   limit: 10,
-  threshold: 0.6,
+  type: "semantic",
+  scope: "long_term",
+  minImportance: 0.5,
 });
 ```
 
-### Filtered Search
+### Get Options Type
 
 ```typescript
-const memories = await memory.recall("ethereum", {
-  limit: 20,
-  threshold: 0.5,
+interface GetMemoriesOptions {
+  limit?: number;
+  type?: MemoryType;
+  scope?: MemoryScope;
+  minImportance?: number;
+}
+```
 
-  // Filter by type
-  type: ["semantic", "episodic"],
+### Search by Text
 
-  // Filter by importance
-  minImportance: 0.5,
-
-  // Filter by time
-  since: Date.now() - 7 * 24 * 60 * 60 * 1000,  // Last 7 days
-
-  // Filter by metadata
-  metadata: {
-    source: ["news", "research"],
-  },
-
-  // Scoring weights
-  weights: {
-    similarity: 0.6,
-    importance: 0.2,
-    recency: 0.2,
-  },
+```typescript
+const memories = await memoryStore.search({
+  query: "ethereum market",
+  limit: 10,
 });
+```
+
+If the backend supports vector search, semantic similarity is used. Otherwise, falls back to text matching.
+
+### Search Options Type
+
+```typescript
+interface SearchMemoriesOptions {
+  query: string;
+  limit?: number;
+  type?: MemoryType;
+  threshold?: number;
+}
 ```
 
 ### Get by ID
 
 ```typescript
-const memory = await memory.get(memoryId);
-```
+const memory = await memoryStore.getById("memory_id_here");
 
-### Get with Links
-
-```typescript
-const result = await memory.getWithLinks(memoryId);
-
-console.log(result.memory);      // The memory
-console.log(result.links);       // Outgoing links
-console.log(result.backlinks);   // Incoming links
-```
-
-### List by Type
-
-```typescript
-const episodic = await memory.listByType("episodic", {
-  limit: 100,
-  minImportance: 0.3,
-});
-```
-
-## Memory Linking
-
-### Detect Links
-
-```typescript
-const links = await memory.detectLinks(memoryId);
-
-// Returns detected relationships
-for (const link of links) {
-  console.log(`${link.type} -> ${link.targetId} (${link.strength})`);
+if (memory) {
+  console.log(memory.content);
 }
 ```
 
-### Manual Linking
+## Updating Memories
 
 ```typescript
-await memory.link({
-  sourceId: memory1Id,
-  targetId: memory2Id,
-  type: "caused_by",
-  strength: 0.85,
-  confidence: 0.9,
+const updated = await memoryStore.update("memory_id", {
+  importance: 0.9,
+  tags: ["important", "verified"],
 });
 ```
 
-### Link Types
+<Note>
+Update support depends on the backend. The Convex backend requires the `updateMemory` method to be implemented.
+</Note>
+
+## Deleting Memories
 
 ```typescript
-type LinkType =
-  | "caused_by"       // Causal relationship
-  | "related_to"      // General association
-  | "contradicts"     // Conflicting information
-  | "elaborates"      // Adds detail
-  | "supersedes"      // Replaces old info
-  | "temporal_before" // Happened before
-  | "temporal_after"; // Happened after
+await memoryStore.delete("memory_id");
 ```
 
-### Get Causal Chain
-
-```typescript
-const chain = await memory.getCausalChain(memoryId);
-
-// Returns ordered sequence of memories
-for (const mem of chain) {
-  console.log(mem.content);
-}
-```
-
-## Consolidation
-
-### Trigger Consolidation
-
-```typescript
-const result = await memory.consolidate();
-
-console.log("Processed:", result.memoriesProcessed);
-console.log("Clusters:", result.clustersFound);
-console.log("Core memories created:", result.coreMemoriesCreated);
-console.log("Decayed:", result.memoriesDecayed);
-```
-
-### Get Clusters
-
-```typescript
-const clusters = await memory.getClusters({
-  minSize: 3,
-  threshold: 0.7,
-});
-
-for (const cluster of clusters) {
-  console.log(`Theme: ${cluster.theme}`);
-  console.log(`Memories: ${cluster.memories.length}`);
-}
-```
-
-### Get Core Memories
-
-```typescript
-const coreMemories = await memory.getCoreMemories({
-  limit: 50,
-  minConfidence: 0.7,
-});
-```
-
-## Reflection
-
-### Generate Reflection
-
-```typescript
-const reflection = await memory.reflect({
-  type: "behavioral",      // emotional, knowledge, behavioral, growth
-  focus: "market analysis patterns",
-  lookback: "7d",
-});
-
-console.log(reflection.content);
-console.log(reflection.basedOn);  // Memory IDs that informed this
-```
-
-## Embeddings
-
-### Generate Embedding
-
-```typescript
-const embedding = await memory.embed("text to embed");
-```
-
-### Batch Embeddings
-
-```typescript
-const embeddings = await memory.batchEmbed([
-  "text 1",
-  "text 2",
-  "text 3",
-], {
-  batchSize: 10,
-  parallelism: 3,
-});
-```
-
-### Similarity
-
-```typescript
-const similarity = memory.cosineSimilarity(embedding1, embedding2);
-```
+<Note>
+Delete support depends on the backend. The Convex backend requires the `deleteMemory` method to be implemented.
+</Note>
 
 ## Statistics
 
 ```typescript
-const stats = await memory.getStats();
+const stats = await memoryStore.getStats();
 
 console.log("Total memories:", stats.total);
 console.log("By type:", stats.byType);
-console.log("Avg importance:", stats.avgImportance);
-console.log("Core memories:", stats.coreMemories);
-console.log("Links:", stats.linkCount);
+console.log("By scope:", stats.byScope);
+console.log("Avg importance:", stats.averageImportance);
 ```
 
-## Maintenance
-
-### Prune Old Memories
+### Stats Type
 
 ```typescript
-// Preview
-const preview = await memory.prune({
-  olderThan: 30 * 24 * 60 * 60 * 1000,  // 30 days
-  maxImportance: 0.3,
-  excludeTypes: ["reflection", "procedural"],
-  dryRun: true,
-});
-
-console.log(`Would prune ${preview.count} memories`);
-
-// Actually prune
-await memory.prune({
-  ...options,
-  dryRun: false,
-});
-```
-
-### Update Memory
-
-```typescript
-await memory.update(memoryId, {
-  importance: 0.9,
-  metadata: {
-    ...existingMetadata,
-    newField: "value",
-  },
-});
-```
-
-### Delete Memory
-
-```typescript
-await memory.delete(memoryId);
+interface MemoryStats {
+  total: number;
+  byType: Record<MemoryType, number>;
+  byScope: Record<MemoryScope, number>;
+  averageImportance: number;
+}
 ```
 
 ## Types
@@ -330,45 +190,135 @@ await memory.delete(memoryId);
 
 ```typescript
 interface Memory {
-  _id: string;
-  type: MemoryType;
+  id?: string;
   content: string;
-  embedding: number[];
-  importance: number;
-  salience: number;
-  confidence: number;
-  sentiment: {
-    score: number;
-    label: "positive" | "negative" | "neutral";
-  };
-  metadata: MemoryMetadata;
-  unique: boolean;
-  version: number;
-  createdAt: number;
-  lastAccessedAt: number;
+  type: MemoryType;
+  scope: MemoryScope;
+  importance: number;     // 0-1
+  salience: number;       // 0-1, how attention-grabbing
+  valence: number;        // -1 to 1, emotional tone
+  confidence: number;     // 0-1, reliability
+  tags: string[];
+  sourceType: string;
+  sourceId?: string;
+  createdAt: string;
+  accessedAt?: string;
+  accessCount: number;
+  unique: boolean;        // Passed deduplication check
 }
-
-type MemoryType =
-  | "episodic"
-  | "semantic"
-  | "emotional"
-  | "procedural"
-  | "reflection";
 ```
 
-### MemoryMetadata
+### MemoryType
 
 ```typescript
-interface MemoryMetadata {
-  context?: string;
-  mood?: string;
-  routine?: string;
-  trigger?: string;
-  entities?: string[];
-  source?: string;
-  [key: string]: any;
-}
+type MemoryType =
+  | "episodic"    // Specific events and experiences
+  | "semantic"    // Facts and concepts
+  | "emotional"   // Feelings about topics
+  | "procedural"  // Learned patterns
+  | "reflection"; // Self-reflective insights
 ```
+
+### MemoryScope
+
+```typescript
+type MemoryScope =
+  | "short_term"  // Recent, may decay
+  | "working"     // Active processing
+  | "long_term";  // Permanent storage
+```
+
+## Deduplication
+
+The SDK includes type-specific deduplication thresholds:
+
+| Type | Threshold | Rationale |
+|------|-----------|-----------|
+| episodic | 0.92 | Events can be similar but distinct |
+| semantic | 0.95 | Facts need high similarity to merge |
+| emotional | 0.88 | Feelings about same topic merge easily |
+| procedural | 0.97 | Patterns need near-exact match |
+| reflection | 0.90 | Self-insights should be unique |
+
+### Deduplication Utilities
+
+```typescript
+import {
+  checkDuplication,
+  findSimilarMemories,
+  calculateSalience,
+  calculateConfidence,
+  DEDUP_THRESHOLDS
+} from "./src/memory/deduplication";
+
+// Check if a memory is duplicate
+const result = checkDuplication(newMemory, existingMemories);
+
+if (!result.isUnique) {
+  console.log("Duplicate found:", result.reason);
+  console.log("Matched:", result.matchedMemoryId);
+  console.log("Similarity:", result.similarity);
+}
+
+// Find similar memories without strict dedup
+const similar = findSimilarMemories(memory, existingMemories, {
+  limit: 5,
+  minSimilarity: 0.5,
+});
+
+// Calculate salience (how attention-grabbing)
+const salience = calculateSalience("Breaking: Major market shift!");
+
+// Calculate confidence (how reliable)
+const confidence = calculateConfidence("ETH price is $2000", "api");
+```
+
+## Embeddings
+
+For embedding operations, use the LLM module directly:
+
+```typescript
+import {
+  createEmbeddingClient,
+  embeddingConfigFromEnv,
+  cosineSimilarity
+} from "./src/llm";
+
+const embedder = createEmbeddingClient(embeddingConfigFromEnv());
+
+// Generate embedding
+const result = await embedder.embed("Hello world");
+console.log(result.embedding.length); // 768 for Gemini
+
+// Compare embeddings
+const similarity = cosineSimilarity(embedding1, embedding2);
+```
+
+## Backend Support
+
+Different backends may support different features:
+
+| Method | Convex | In-Memory |
+|--------|--------|-----------|
+| `store()` | Yes | Yes |
+| `get()` | Yes | Yes |
+| `search()` | Yes (vector) | Yes (text) |
+| `getById()` | Yes | Yes |
+| `update()` | Optional | Yes |
+| `delete()` | Optional | Yes |
+| `getStats()` | Yes | Yes |
+
+## Advanced Features (CLARK Backend)
+
+The CLARK demonstration backend includes additional features not in the base SDK:
+
+- Memory linking with 7 relationship types
+- Memory consolidation into core memories
+- Self-reflection generation
+- Sliding window deduplication
+- Quality scoring
+
+See the [Memory Management Guide](/guides/memory-management) for advanced patterns.
 
 ## Next Steps
 

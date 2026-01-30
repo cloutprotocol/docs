@@ -283,10 +283,10 @@ interface TickContext {
   // Current agent state
   state: AgentState;
 
-  // Retrieved memories for this tick
+  // Memories retrieved for this tick
   memories: Memory[];
 
-  // Retrieved knowledge items
+  // Knowledge items retrieved for this tick
   knowledge: Knowledge[];
 
   // Recent activity logs
@@ -295,12 +295,12 @@ interface TickContext {
 
 interface AgentState {
   mood: Mood;
-  health: number;
+  health: number;       // 0-100
   routine: Routine;
-  volatility: number;
+  volatility: number;   // 0-1
   counters: { ticks: number; feeds: number };
   lastTick: string | null;
-  cryo: boolean;
+  cryo: boolean;        // Hibernation mode
 }
 ```
 
