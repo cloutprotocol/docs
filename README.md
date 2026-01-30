@@ -39,9 +39,8 @@ We welcome contributions! Please see our [contribution guidelines](https://docs.
 
 ## Community
 
-- [Discord](https://discord.gg/clarkos) - Chat with other builders
-- [GitHub](https://github.com/cloutprotocol/clarkos) - Star the repo and contribute
-- [Twitter](https://twitter.com/cloutprotocol) - Follow for updates
+- [GitHub](https://github.com/clarkos) - Star the repo and contribute
+- [Twitter](https://twitter.com/clarkos) - Follow for updates
 
 ## License
 

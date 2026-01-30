@@ -28,8 +28,7 @@
               "concepts/agents",
               "concepts/memory",
               "concepts/consciousness",
-              "concepts/tick-system",
-              "concepts/presence"
+              "concepts/tick-system"
             ]
           },
           {
@@ -92,24 +91,13 @@
       "anchors": [
         {
           "anchor": "GitHub",
-          "href": "https://github.com/cloutprotocol/clarkos",
+          "href": "https://github.com/clarkos",
           "icon": "github"
-        },
-        {
-          "anchor": "Discord",
-          "href": "https://discord.gg/clarkos",
-          "icon": "discord"
         }
       ]
     }
   },
     "navbar": {
-    "links": [
-      {
-        "label": "Community",
-        "href": "https://discord.gg/clarkos"
-      }
-    ],
     "primary": {
       "type": "button",
       "label": "Get Started",
@@ -127,8 +115,8 @@
   },
   "footer": {
     "socials": {
-      "x": "https://x.com/cloutprotocol",
-      "github": "https://github.com/cloutprotocol"
+      "x": "https://x.com/clarkos",
+      "github": "https://github.com/clarkos"
     }
   }
 }
