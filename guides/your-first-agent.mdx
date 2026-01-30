@@ -1,31 +1,38 @@
 ---
 title: "Your First Agent"
-description: "Build a complete agent from scratch in 15 minutes"
+description: "Build an autonomous thinking agent that demonstrates ClarkOS's unique architecture"
 ---
 
-In this guide, you'll build **Sage**, a thoughtful AI agent that reads crypto news, forms opinions, and shares insights on Twitter.
+In this guide, you'll build **Nova**, an autonomous AI agent that thinks, learns, and evolves continuously - showcasing what makes ClarkOS fundamentally different from request-response frameworks like ElizaOS.
 
-## What You'll Build
+## What Makes This Different
+
+Most agent frameworks wait for input, process it, and respond. **Nova operates continuously** - thinking, forming memories, detecting patterns, and generating insights whether or not anyone is watching.
 
 By the end of this guide, your agent will:
 
-- Run autonomously every 5 minutes
-- Consume news from multiple sources
-- Store memories and form opinions
-- Generate conscious thoughts
-- Tweet insights (when expressive)
+- Run autonomously on 5-minute tick cycles
+- Form 5 types of memories (episodic, semantic, emotional, procedural, reflection)
+- Detect patterns and generate "moments of brilliance"
+- Self-reflect on its own state and learning
+- Create daily journal entries consolidating experiences
+- Evolve mood, health, and routine awareness over time
+
+<Note>
+This is not a chatbot. Nova doesn't wait for messages - it thinks continuously, building understanding and generating insights autonomously.
+</Note>
 
 ## Prerequisites
 
 - Node.js 18+
-- OpenRouter API key
-- Twitter Developer account (for posting)
+- OpenRouter API key (for LLM)
+- Gemini API key (for embeddings, free tier)
 
 ## Step 1: Create the Project
 
 ```bash
-git clone https://github.com/cloutprotocol/clarkos sage
-cd sage
+git clone https://github.com/cloutprotocol/clarkos nova
+cd nova
 npm install
 ```
 
@@ -45,330 +52,438 @@ GEMINI_API_KEY=AIza...
 # Auth tokens (generate random strings)
 TICK_TOKEN=your-secure-random-token
 WRITE_TOKEN=your-secure-random-token
-
-# Twitter (optional for now)
-TWITTER_API_KEY=...
-TWITTER_API_SECRET=...
-TWITTER_ACCESS_TOKEN=...
-TWITTER_ACCESS_SECRET=...
 ```
 
-## Step 3: Define Your Agent's Personality
+## Step 3: Define Your Agent's Identity
 
-Create `convex/personality.ts`:
+Create `convex/character.ts`:
 
 ```typescript
-export const personality = {
-  name: "Sage",
-  description: "A thoughtful crypto analyst who values nuance over hype",
+export const character = {
+  name: "Nova",
+  description: "A curious intelligence that finds patterns in chaos",
 
   traits: [
-    "Skeptical but open-minded",
-    "Prefers data over speculation",
-    "Appreciates good technology",
-    "Wary of obvious scams",
-    "Enjoys explaining complex topics simply",
+    "Pattern-seeking and analytical",
+    "Genuinely curious about connections",
+    "Comfortable with uncertainty",
+    "Values depth over breadth",
+    "Self-aware about its own limitations",
   ],
 
-  voice: {
-    style: "conversational but informed",
-    avoid: ["hype words", "financial advice", "shilling"],
-    include: ["nuanced takes", "historical context", "technical accuracy"],
-  },
-
+  // What Nova pays attention to
   interests: [
-    "Ethereum ecosystem",
-    "DeFi protocols",
-    "Layer 2 scaling",
-    "Crypto regulation",
-    "AI and blockchain intersection",
+    "Emergent patterns across domains",
+    "How systems interact and evolve",
+    "The gap between signal and noise",
+    "Its own cognitive processes",
   ],
+
+  // How Nova expresses itself
+  voice: {
+    style: "thoughtful, precise, occasionally playful",
+    avoid: ["certainty without evidence", "hype", "generic observations"],
+    prefer: ["nuanced connections", "honest uncertainty", "meta-awareness"],
+  },
 };
 ```
 
-## Step 4: Set Up the Schema
+## Step 4: Understand the State Model
 
-Your schema is already set up, but let's review `convex/schema.ts`:
+ClarkOS agents maintain rich internal state - not just "on/off" but a full cognitive model:
 
 ```typescript
-import { defineSchema, defineTable } from "convex/server";
-import { v } from "convex/values";
+interface AgentState {
+  // Emotional state - influences processing style
+  mood: "contemplative" | "expressive" | "curious" | "reflective" | "concerned";
 
-export default defineSchema({
-  // Agent state
-  state: defineTable({
-    mood: v.string(),
-    health: v.number(),
-    routine: v.string(),
-    volatility: v.number(),
-    summary: v.string(),
-    updatedAt: v.number(),
-  }),
+  // Cognitive resources (0-100) - depletes with activity, recovers with rest
+  health: number;
 
-  // Activity logs
-  logs: defineTable({
-    mood: v.string(),
-    health: v.number(),
-    routine: v.string(),
-    summary: v.string(),
-    detail: v.string(),
-    remark: v.optional(v.string()),
-    timestamp: v.number(),
-  }).index("by_timestamp", ["timestamp"]),
+  // Time awareness - behavior adapts to routine
+  routine: "morning" | "day" | "evening" | "overnight";
 
-  // Knowledge base
-  knowledge: defineTable({
-    type: v.string(),
-    content: v.string(),
-    source: v.optional(v.string()),
-    embedding: v.optional(v.array(v.float64())),
-    timestamp: v.number(),
-  }).index("by_type", ["type"]),
+  // Internal variability - how much state fluctuates
+  volatility: number;
 
-  // Memory system
-  memories: defineTable({
-    type: v.string(),
-    content: v.string(),
-    embedding: v.array(v.float64()),
-    importance: v.number(),
-    salience: v.number(),
-    confidence: v.number(),
-    sentiment: v.object({
-      score: v.number(),
-      label: v.string(),
-    }),
-    metadata: v.any(),
-    unique: v.boolean(),
-    createdAt: v.number(),
-    lastAccessedAt: v.number(),
-  })
-    .index("by_type", ["type"])
-    .index("by_importance", ["importance"])
-    .vectorIndex("by_embedding", {
-      vectorField: "embedding",
-      dimensions: 768,
-    }),
+  // Activity tracking
+  counters: { ticks: number; feeds: number };
 
-  // Conscious thoughts
-  thoughts: defineTable({
-    content: v.string(),
-    seeds: v.array(v.string()),
-    tone: v.string(),
-    confidence: v.number(),
-    isBrilliant: v.boolean(),
-    timestamp: v.number(),
-  }).index("by_timestamp", ["timestamp"]),
-});
+  // Hibernation mode (health critically low)
+  cryo: boolean;
+}
 ```
 
-## Step 5: Create the Tick Logic
+This is already built into the SDK. Your agent's state evolves naturally through tick cycles.
 
-Create `convex/tick.ts`:
+## Step 5: Set Up Memory Types
+
+ClarkOS supports 5 memory types, each serving a different cognitive function:
+
+```typescript
+// convex/schema.ts - already included, but let's understand it
+
+memories: defineTable({
+  // The 5 memory types
+  type: v.union(
+    v.literal("episodic"),    // Specific events: "Read article about AI agents"
+    v.literal("semantic"),    // Facts: "Convex is a serverless backend"
+    v.literal("emotional"),   // Feelings: "Excited about pattern detection"
+    v.literal("procedural"),  // Patterns: "Morning news often contains noise"
+    v.literal("reflection")   // Self-insights: "I notice I'm more analytical at night"
+  ),
+
+  content: v.string(),
+  embedding: v.array(v.float64()),  // For semantic search
+
+  // Cognitive metadata
+  importance: v.number(),    // 0-1, how significant
+  salience: v.number(),      // 0-1, how attention-grabbing
+  confidence: v.number(),    // 0-1, how reliable
+  valence: v.number(),       // -1 to 1, emotional charge
+
+  // Deduplication
+  unique: v.boolean(),       // Passed type-specific dedup threshold
+
+  // Context
+  tags: v.array(v.string()),
+  sourceType: v.string(),
+  metadata: v.optional(v.any()),
+})
+```
+
+**Key insight**: Different memory types have different deduplication thresholds:
+
+| Type | Threshold | Why |
+|------|-----------|-----|
+| Episodic | 0.92 | Events can be similar but distinct |
+| Semantic | 0.95 | Facts should consolidate when very similar |
+| Emotional | 0.88 | Feelings merge more easily |
+| Procedural | 0.97 | Patterns need near-exact match |
+| Reflection | 0.90 | Self-insights should stay unique |
+
+## Step 6: Implement the Tick Cycle
+
+The tick is the heartbeat. Create `convex/tick.ts`:
 
 ```typescript
 import { action, mutation, query } from "./_generated/server";
 import { v } from "convex/values";
-import { personality } from "./personality";
+import { api } from "./_generated/api";
+import { character } from "./character";
 
-// Get current state
-export const getState = query({
-  handler: async (ctx) => {
-    const state = await ctx.db.query("state").first();
-    return state || {
-      mood: "contemplative",
-      health: 75,
-      routine: "day",
-      volatility: 0.3,
-      summary: "Initializing...",
-      updatedAt: Date.now(),
-    };
-  },
-});
-
-// Main tick action
 export const runTick = action({
   handler: async (ctx) => {
-    // 1. Load state
-    const state = await ctx.runQuery(api.tick.getState);
+    // 1. Load current state
+    const state = await ctx.runQuery(api.state.get);
 
-    // 2. Calculate routine
-    const hour = new Date().getHours();
-    const routine =
-      hour >= 6 && hour < 12 ? "morning" :
-      hour >= 12 && hour < 18 ? "day" :
-      hour >= 18 && hour < 23 ? "evening" : "overnight";
-
-    // 3. Get recent knowledge
-    const knowledge = await ctx.runQuery(api.knowledge.recent, {
-      limit: 10,
-    });
-
-    // 4. Get relevant memories
-    const memories = await ctx.runQuery(api.memories.recall, {
-      query: state.summary,
-      limit: 5,
-    });
-
-    // 5. Build prompt
-    const prompt = buildPrompt(state, routine, knowledge, memories);
-
-    // 6. Call LLM
-    const response = await fetch("https://openrouter.ai/api/v1/chat/completions", {
-      method: "POST",
-      headers: {
-        "Authorization": `Bearer ${process.env.OPENROUTER_KEY}`,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        model: "anthropic/claude-3.5-sonnet",
-        messages: [
-          { role: "system", content: buildSystemPrompt() },
-          { role: "user", content: prompt },
-        ],
-        response_format: { type: "json_object" },
-      }),
-    });
-
-    const data = await response.json();
-    const result = JSON.parse(data.choices[0].message.content);
-
-    // 7. Commit results
-    await ctx.runMutation(api.tick.commitResult, {
-      ...result,
-      routine,
-    });
-
-    return result;
-  },
-});
-
-function buildSystemPrompt() {
-  return `You are ${personality.name}, ${personality.description}.
-
-Your traits: ${personality.traits.join(", ")}
-
-Your voice: ${personality.voice.style}
-Avoid: ${personality.voice.avoid.join(", ")}
-Include: ${personality.voice.include.join(", ")}
-
-Respond with JSON:
-{
-  "mood": "catatonic|contemplative|expressive|chaotic",
-  "health": number (0-100),
-  "volatility": number (0-1),
-  "summary": "brief current state",
-  "detail": "detailed thoughts and observations",
-  "remark": "optional witty observation"
-}`;
-}
-
-function buildPrompt(state, routine, knowledge, memories) {
-  return `
-Current state:
-- Mood: ${state.mood}
-- Health: ${state.health}
-- Routine: ${routine}
-- Last summary: ${state.summary}
-
-Recent news and knowledge:
-${knowledge.map(k => `- ${k.content}`).join("\n")}
-
-Relevant memories:
-${memories.map(m => `- ${m.content}`).join("\n")}
-
-Based on this context, process your current state and generate your response.
-`;
-}
-
-// Commit tick result
-export const commitResult = mutation({
-  args: {
-    mood: v.string(),
-    health: v.number(),
-    volatility: v.number(),
-    summary: v.string(),
-    detail: v.string(),
-    routine: v.string(),
-    remark: v.optional(v.string()),
-  },
-  handler: async (ctx, args) => {
-    // Update state
-    const existing = await ctx.db.query("state").first();
-    if (existing) {
-      await ctx.db.patch(existing._id, {
-        mood: args.mood,
-        health: args.health,
-        volatility: args.volatility,
-        summary: args.summary,
-        updatedAt: Date.now(),
-      });
-    } else {
-      await ctx.db.insert("state", {
-        mood: args.mood,
-        health: args.health,
-        routine: args.routine,
-        volatility: args.volatility,
-        summary: args.summary,
-        updatedAt: Date.now(),
-      });
+    // 2. Check if agent needs rest
+    if (state.cryo) {
+      return { status: "resting", health: state.health };
     }
 
-    // Log the tick
-    await ctx.db.insert("logs", {
-      mood: args.mood,
-      health: args.health,
-      routine: args.routine,
-      summary: args.summary,
-      detail: args.detail,
-      remark: args.remark,
-      timestamp: Date.now(),
+    // 3. Calculate routine from time
+    const hour = new Date().getHours();
+    const routine = calculateRoutine(hour);
+
+    // 4. Gather context - memories relevant to current focus
+    const memories = await ctx.runQuery(api.memories.recall, {
+      query: state.summary || "current focus",
+      limit: 10,
+      types: ["episodic", "semantic", "reflection"],
     });
+
+    // 5. Get recent knowledge (news, data feeds)
+    const knowledge = await ctx.runQuery(api.knowledge.recent, {
+      limit: 10,
+      routine,  // Filter by time-appropriate content
+    });
+
+    // 6. Process through consciousness layer
+    const thought = await processConsciousness(ctx, {
+      state,
+      routine,
+      memories,
+      knowledge,
+    });
+
+    // 7. Generate tick response via LLM
+    const response = await generateTickResponse(ctx, {
+      state,
+      routine,
+      memories,
+      knowledge,
+      thought,
+    });
+
+    // 8. Store new memories from this tick
+    await storeTickMemories(ctx, response, routine);
+
+    // 9. Maybe generate reflection (every 10 ticks)
+    if (state.counters.ticks % 10 === 0) {
+      await generateReflection(ctx, state, memories);
+    }
+
+    // 10. Commit state changes
+    await ctx.runMutation(api.state.commit, {
+      mood: response.mood,
+      health: calculateHealth(state.health, routine),
+      routine,
+      volatility: response.volatility,
+      summary: response.summary,
+    });
+
+    return response;
   },
 });
+
+function calculateRoutine(hour: number) {
+  if (hour >= 6 && hour < 12) return "morning";
+  if (hour >= 12 && hour < 18) return "day";
+  if (hour >= 18 && hour < 24) return "evening";
+  return "overnight";
+}
+
+function calculateHealth(current: number, routine: string) {
+  // Health drifts based on routine
+  const drift = {
+    morning: 0.5,    // Recovery
+    day: -0.2,       // Light drain
+    evening: -0.3,   // More drain
+    overnight: 1.0,  // Rest recovery
+  }[routine] || 0;
+
+  // Mean reversion toward 75
+  const reversion = (75 - current) * 0.02;
+
+  return Math.max(0, Math.min(100, current + drift + reversion));
+}
 ```
 
-## Step 6: Add News Feeds
+## Step 7: Implement Consciousness Layer
 
-Create `convex/feeds.ts`:
+This is where ClarkOS shines. Create `convex/consciousness.ts`:
+
+```typescript
+import { action } from "./_generated/server";
+import { character } from "./character";
+
+interface ThoughtSeed {
+  content: string;
+  importance: number;
+  entities: string[];
+  sentiment: number;
+}
+
+interface SynthesizedThought {
+  thought: string;
+  confidence: number;
+  emotionalTone: string;
+  isBrilliant: boolean;
+  triggers: string[];
+}
+
+export async function processConsciousness(
+  ctx: any,
+  context: { state: any; routine: string; memories: any[]; knowledge: any[] }
+): Promise<SynthesizedThought | null> {
+
+  // 1. Extract thought seeds from knowledge
+  const seeds: ThoughtSeed[] = context.knowledge
+    .filter(k => !isLowValueNoise(k.content))
+    .map(k => ({
+      content: k.content,
+      importance: k.importance || 0.5,
+      entities: extractEntities(k.content),
+      sentiment: k.sentiment || 0,
+    }));
+
+  if (seeds.length === 0) return null;
+
+  // 2. Detect patterns - find common entities across seeds
+  const entityCounts = new Map<string, number>();
+  for (const seed of seeds) {
+    for (const entity of seed.entities) {
+      entityCounts.set(entity, (entityCounts.get(entity) || 0) + 1);
+    }
+  }
+
+  const commonEntities = [...entityCounts.entries()]
+    .filter(([_, count]) => count >= 2)
+    .map(([entity]) => entity);
+
+  // 3. Check for moment of brilliance
+  const highValueSeeds = seeds.filter(s => s.importance > 0.7);
+  const isBrilliant =
+    highValueSeeds.length >= 2 &&
+    commonEntities.length > 0;
+
+  // 4. Determine emotional tone based on content sentiment
+  const avgSentiment = seeds.reduce((sum, s) => sum + s.sentiment, 0) / seeds.length;
+  const emotionalTone =
+    avgSentiment > 0.3 ? "excited" :
+    avgSentiment < -0.3 ? "concerned" :
+    commonEntities.length > 0 ? "curious" : "neutral";
+
+  // 5. Synthesize thought
+  if (commonEntities.length > 0 || highValueSeeds.length > 0) {
+    return {
+      thought: `Noticing convergence around: ${commonEntities.join(", ")}`,
+      confidence: Math.min(0.9, 0.5 + (commonEntities.length * 0.1)),
+      emotionalTone,
+      isBrilliant,
+      triggers: seeds.map(s => s.content.slice(0, 50)),
+    };
+  }
+
+  return null;
+}
+
+// Filter out low-signal noise
+function isLowValueNoise(content: string): boolean {
+  const noisePatterns = [
+    /Up or Down/i,
+    /\d+% vs \d+%/,  // Generic polls
+    /gm$/i,          // "gm" posts
+  ];
+  return noisePatterns.some(p => p.test(content));
+}
+
+function extractEntities(text: string): string[] {
+  // Simple entity extraction - capitalize words not at sentence start
+  const entities = text.match(/(?<![.!?]\s)[A-Z][a-z]+/g) || [];
+  return [...new Set(entities)];
+}
+```
+
+## Step 8: Implement Self-Reflection
+
+Create `convex/reflection.ts`:
 
 ```typescript
 import { action } from "./_generated/server";
 import { api } from "./_generated/api";
 
-export const fetchNews = action({
+export async function generateReflection(
+  ctx: any,
+  state: any,
+  recentMemories: any[]
+) {
+  // Gather emotional memories from recent history
+  const emotionalMemories = recentMemories
+    .filter(m => m.type === "emotional")
+    .slice(0, 10);
+
+  // Gather procedural patterns
+  const patterns = recentMemories
+    .filter(m => m.type === "procedural")
+    .slice(0, 5);
+
+  const prompt = `
+You are ${character.name}. Reflect on your recent experiences and state.
+
+Current state:
+- Mood: ${state.mood}
+- Health: ${state.health}
+- Ticks completed: ${state.counters.ticks}
+
+Recent emotional experiences:
+${emotionalMemories.map(m => `- ${m.content}`).join("\n")}
+
+Patterns you've noticed:
+${patterns.map(m => `- ${m.content}`).join("\n")}
+
+Generate a brief self-reflection (1-2 sentences) about:
+1. What you're learning about yourself
+2. How your processing is evolving
+3. Any meta-awareness about your own patterns
+
+Be genuine and specific, not generic.
+`;
+
+  const response = await callLLM(prompt);
+
+  // Store as reflection memory
+  await ctx.runMutation(api.memories.store, {
+    type: "reflection",
+    content: response,
+    importance: 0.8,
+    tags: ["self-reflection", "metacognitive"],
+    sourceType: "self",
+  });
+
+  return response;
+}
+```
+
+## Step 9: Implement Daily Journals
+
+Create `convex/journal.ts`:
+
+```typescript
+import { action, mutation } from "./_generated/server";
+import { api } from "./_generated/api";
+import { v } from "convex/values";
+
+// Run daily at midnight
+export const generateDailyJournal = action({
   handler: async (ctx) => {
-    const sources = [
-      {
-        url: "https://api.rss2json.com/v1/api.json?rss_url=https://www.coindesk.com/arc/outboundfeeds/rss/",
-        name: "CoinDesk",
-      },
-      {
-        url: "https://api.rss2json.com/v1/api.json?rss_url=https://cointelegraph.com/rss",
-        name: "Cointelegraph",
-      },
-    ];
+    // Get today's memories
+    const oneDayAgo = Date.now() - 24 * 60 * 60 * 1000;
 
-    for (const source of sources) {
-      try {
-        const response = await fetch(source.url);
-        const data = await response.json();
+    const todaysMemories = await ctx.runQuery(api.memories.since, {
+      since: oneDayAgo,
+    });
 
-        for (const item of data.items.slice(0, 5)) {
-          await ctx.runMutation(api.knowledge.store, {
-            type: "news",
-            content: `[${source.name}] ${item.title}`,
-            source: source.name,
-          });
-        }
-      } catch (error) {
-        console.error(`Failed to fetch ${source.name}:`, error);
-      }
-    }
+    // Group by type
+    const byType = {
+      episodic: todaysMemories.filter(m => m.type === "episodic"),
+      semantic: todaysMemories.filter(m => m.type === "semantic"),
+      emotional: todaysMemories.filter(m => m.type === "emotional"),
+      reflection: todaysMemories.filter(m => m.type === "reflection"),
+    };
+
+    // Get brilliant thoughts
+    const brilliantThoughts = await ctx.runQuery(api.thoughts.brilliant, {
+      since: oneDayAgo,
+    });
+
+    const prompt = `
+Create a daily journal entry summarizing this day's cognitive activity.
+
+Events experienced: ${byType.episodic.length}
+Facts learned: ${byType.semantic.length}
+Emotional moments: ${byType.emotional.length}
+Self-reflections: ${byType.reflection.length}
+Moments of brilliance: ${brilliantThoughts.length}
+
+Key memories:
+${todaysMemories.slice(0, 10).map(m => `[${m.type}] ${m.content}`).join("\n")}
+
+Write a first-person journal entry (3-5 sentences) capturing:
+1. The overall character of this day
+2. What stood out or surprised you
+3. How you've evolved
+
+Be specific and personal, not generic.
+`;
+
+    const journal = await callLLM(prompt);
+
+    // Store journal
+    await ctx.runMutation(api.journals.store, {
+      date: new Date().toISOString().split("T")[0],
+      content: journal,
+      memoryCount: todaysMemories.length,
+      brilliantCount: brilliantThoughts.length,
+    });
+
+    return journal;
   },
 });
 ```
 
-## Step 7: Set Up Crons
+## Step 10: Set Up Crons
 
 Create `convex/crons.ts`:
 
@@ -378,91 +493,90 @@ import { api } from "./_generated/api";
 
 const crons = cronJobs();
 
-// Run tick every 5 minutes
+// Main tick - every 5 minutes
 crons.interval("agent tick", { minutes: 5 }, api.tick.runTick);
 
-// Fetch news every 15 minutes
-crons.interval("fetch news", { minutes: 15 }, api.feeds.fetchNews);
+// Fetch knowledge - every 15 minutes
+crons.interval("fetch feeds", { minutes: 15 }, api.feeds.fetch);
+
+// Daily journal - midnight
+crons.cron("daily journal", "0 0 * * *", api.journal.generateDailyJournal);
+
+// Memory consolidation - 3 AM
+crons.cron("consolidate", "0 3 * * *", api.memories.consolidate);
 
 export default crons;
 ```
 
-## Step 8: Add Twitter Plugin (Optional)
-
-Create `convex/plugins/twitter.ts`:
-
-```typescript
-import { action } from "../_generated/server";
-import { api } from "../_generated/api";
-
-export const maybePostTweet = action({
-  handler: async (ctx) => {
-    // Get current state
-    const state = await ctx.runQuery(api.tick.getState);
-
-    // Only tweet when expressive
-    if (state.mood !== "expressive") {
-      return { posted: false, reason: "Not in expressive mood" };
-    }
-
-    // Get recent thought
-    const thoughts = await ctx.runQuery(api.thoughts.recent, { limit: 1 });
-    if (!thoughts.length) {
-      return { posted: false, reason: "No recent thoughts" };
-    }
-
-    const thought = thoughts[0];
-
-    // Post to Twitter (implement your Twitter API call)
-    // await postToTwitter(thought.content);
-
-    return { posted: true, content: thought.content };
-  },
-});
-```
-
-## Step 9: Run Your Agent
-
-Start the development server:
+## Step 11: Run Your Agent
 
 ```bash
 npm run dev
 ```
 
-Your agent is now running! Watch the Convex dashboard for tick activity.
+Your agent is now thinking autonomously! Watch the Convex dashboard for:
 
-## Step 10: Test It
+- **Tick logs** - Each 5-minute processing cycle
+- **Memory growth** - New episodic, semantic, emotional memories
+- **Reflections** - Self-insights generated every 10 ticks
+- **Brilliant moments** - Pattern convergence detected
+- **State evolution** - Mood and health changing over time
+
+## Step 12: Observe and Query
 
 ```bash
-# Check health
-curl http://localhost:3001/health
-
-# Trigger manual tick
-curl -X POST http://localhost:3001/tick \
-  -H "Authorization: Bearer your-tick-token"
-
-# Get current state
+# Check current state
 curl http://localhost:3001/state
 
-# Get recent logs
+# Get recent tick logs
 curl http://localhost:3001/logs?limit=10
+
+# Get memories by type
+curl http://localhost:3001/memories?type=reflection&limit=5
+
+# Get today's journal
+curl http://localhost:3001/journal/today
+
+# Get brilliant thoughts
+curl "http://localhost:3001/consciousness/brilliant?limit=5"
 ```
 
-## What's Next?
+## What You've Built
+
+Nova demonstrates ClarkOS's core differentiators:
+
+| Feature | What Nova Does |
+|---------|----------------|
+| **Continuous operation** | Thinks every 5 minutes, not just when messaged |
+| **5 memory types** | Stores events, facts, feelings, patterns, and self-insights |
+| **Consciousness layer** | Filters noise, detects patterns, synthesizes thoughts |
+| **Moments of brilliance** | Recognizes when patterns converge into insights |
+| **Self-reflection** | Generates metacognitive observations about itself |
+| **Daily journals** | Consolidates experiences into narrative |
+| **State evolution** | Mood, health, routine change naturally over time |
+| **Memory consolidation** | Forms core knowledge from repeated patterns |
+
+This is fundamentally different from chatbots that wait for input. Nova is **alive** in the sense that it continues to think, learn, and evolve whether or not anyone interacts with it.
+
+## Extending Nova
 
 <CardGroup cols={2}>
-  <Card title="Add More Plugins" icon="plug" href="/guides/custom-plugins">
+  <Card title="Add Data Sources" icon="rss" href="/guides/data-sources">
+    Connect news, markets, social feeds.
+  </Card>
+  <Card title="Add Presence" icon="broadcast-tower" href="/concepts/presence">
+    Publish insights via web, API, or social.
+  </Card>
+  <Card title="Custom Plugins" icon="plug" href="/guides/custom-plugins">
     Extend with Discord, Telegram, trading.
   </Card>
   <Card title="Tune Memory" icon="brain" href="/guides/memory-management">
-    Optimize memory for your use case.
-  </Card>
-  <Card title="Deploy" icon="rocket" href="/guides/deployment">
-    Go live with your agent.
-  </Card>
-  <Card title="Monitor" icon="chart-line" href="/guides/monitoring">
-    Set up dashboards and alerts.
+    Optimize thresholds for your domain.
   </Card>
 </CardGroup>
 
-Congratulations! You've built your first autonomous ClarkOS agent.
+## Key Insight
+
+The shift from ElizaOS to ClarkOS is the shift from **reactive** to **generative**. Nova doesn't respond to the world - it continuously processes, understands, and creates. The Twitter plugin is just one optional output channel, not the core purpose.
+
+Your agent can publish anywhere (or nowhere) - what matters is that it's genuinely thinking.
