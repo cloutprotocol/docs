@@ -45,8 +45,7 @@
             "group": "Plugins",
             "pages": [
               "plugins/overview",
-              "plugins/official",
-              "plugins/community"
+              "plugins/official"
             ]
           }
         ]

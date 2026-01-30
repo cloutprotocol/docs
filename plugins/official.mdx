@@ -1,300 +1,76 @@
 ---
-title: "Official Plugins"
-description: "Production-ready plugins maintained by the ClarkOS team"
+title: "Example Plugins"
+description: "Reference plugin implementations in the repository"
 ---
 
-Official plugins are fully supported, regularly updated, and guaranteed to work with the latest ClarkOS version.
+The repository includes example plugins demonstrating common patterns. These are reference implementations—configure with your own API credentials to use.
 
-<Note>
-  Official plugins are being developed. The APIs shown here represent the planned interface. Check GitHub for current availability.
-</Note>
-
-## Plugin Interface
-
-All official plugins follow the standard ClarkOS plugin interface:
-
-```typescript
-import type { Plugin, TickContext } from "./src";
-
-const examplePlugin: Plugin = {
-  name: "plugin-name",
-  version: "1.0.0",
-  description: "What the plugin does",
-
-  init(agent) {
-    // Setup on agent start
-  },
-
-  cleanup(agent) {
-    // Cleanup on agent stop
-  },
-
-  onTick(context: TickContext) {
-    // React to each tick
-  },
-
-  actions: {
-    async doSomething(params, agent) {
-      return { success: true };
-    }
-  }
-};
-```
+**Reference:** All examples in `plugins/` directory.
 
 ## Social Plugins
 
 ### Twitter Plugin
 
-Post tweets, reply to mentions, monitor keywords.
+Post tweets, reply to mentions, monitor keywords. Uses mood-gating to post only when expressive.
 
-```typescript
-// plugins/twitter.ts
-import type { Plugin, TickContext } from "./src";
+| Config | Type | Description |
+|--------|------|-------------|
+| `apiKey` | string | Twitter API key |
+| `apiSecret` | string | Twitter API secret |
+| `accessToken` | string | OAuth access token |
+| `accessSecret` | string | OAuth access secret |
+| `postEnabled` | boolean | Enable posting |
+| `cooldownMinutes` | number | Minutes between posts |
 
-interface TwitterConfig {
-  apiKey: string;
-  apiSecret: string;
-  accessToken: string;
-  accessSecret: string;
-  postEnabled: boolean;
-  cooldownMinutes: number;
-}
+**Actions:** `post(content)`, `getMentions()`
 
-export function createTwitterPlugin(config: TwitterConfig): Plugin {
-  let lastPostTime = 0;
-
-  return {
-    name: "twitter",
-    version: "1.0.0",
-
-    onTick(context: TickContext) {
-      // Only post when expressive
-      if (context.state.mood !== "expressive") return;
-      if (context.state.health < 50) return;
-
-      const now = Date.now();
-      if (now - lastPostTime < config.cooldownMinutes * 60 * 1000) return;
-
-      // Ready to post - implement Twitter API call
-      console.log("Ready to post to Twitter");
-    },
-
-    actions: {
-      async post(params: { content: string }) {
-        // Implement Twitter API call
-        lastPostTime = Date.now();
-        return { success: true, content: params.content };
-      },
-
-      async getMentions() {
-        // Implement Twitter API call
-        return { success: true, mentions: [] };
-      }
-    }
-  };
-}
-```
+**Reference:** `plugins/twitter.ts`
 
 ### Discord Plugin
 
-Community engagement through Discord bot.
+Community engagement through Discord bot integration.
 
-```typescript
-// plugins/discord.ts
-import type { Plugin, TickContext } from "./src";
+| Config | Type | Description |
+|--------|------|-------------|
+| `token` | string | Bot token |
+| `guildId` | string | Server ID |
+| `channelId` | string | Default channel |
+| `respondToMentions` | boolean | Auto-respond |
 
-interface DiscordConfig {
-  token: string;
-  guildId: string;
-  channelId: string;
-  respondToMentions: boolean;
-}
+**Actions:** `sendMessage(content, channelId?)`
 
-export function createDiscordPlugin(config: DiscordConfig): Plugin {
-  return {
-    name: "discord",
-    version: "1.0.0",
-
-    init(agent) {
-      console.log("Discord plugin initialized");
-      // Connect to Discord gateway
-    },
-
-    cleanup(agent) {
-      // Disconnect from Discord
-    },
-
-    actions: {
-      async sendMessage(params: { content: string; channelId?: string }) {
-        const channel = params.channelId || config.channelId;
-        // Implement Discord API call
-        return { success: true, channel };
-      }
-    }
-  };
-}
-```
+**Reference:** `plugins/discord.ts`
 
 ## Data Plugins
 
 ### News Plugin
 
-Multi-source news aggregation.
+Multi-source news aggregation from RSS feeds and APIs.
 
-```typescript
-// plugins/news.ts
-import type { Plugin, TickContext } from "./src";
+| Config | Type | Description |
+|--------|------|-------------|
+| `sources` | NewsSource[] | Feed URLs and types |
+| `refreshMinutes` | number | Fetch interval |
+| `keywords` | string[] | Filter terms |
 
-interface NewsSource {
-  name: string;
-  url: string;
-  type?: "rss" | "api";
-}
+**Actions:** `getLatest(limit?)`
 
-interface NewsConfig {
-  sources: NewsSource[];
-  refreshMinutes: number;
-  keywords?: string[];
-}
-
-export function createNewsPlugin(config: NewsConfig): Plugin {
-  let lastFetch = 0;
-
-  return {
-    name: "news",
-    version: "1.0.0",
-
-    async onTick(context: TickContext) {
-      const now = Date.now();
-      if (now - lastFetch < config.refreshMinutes * 60 * 1000) return;
-
-      // Fetch from all sources
-      for (const source of config.sources) {
-        try {
-          const items = await fetchSource(source);
-          console.log(`Fetched ${items.length} items from ${source.name}`);
-        } catch (error) {
-          console.error(`Failed to fetch ${source.name}:`, error);
-        }
-      }
-
-      lastFetch = now;
-    },
-
-    actions: {
-      async getLatest(params: { limit?: number }) {
-        return { success: true, items: [] };
-      }
-    }
-  };
-}
-
-async function fetchSource(source: NewsSource) {
-  // Implement RSS/API fetching
-  return [];
-}
-```
+**Reference:** `plugins/news.ts`
 
 ### Markets Plugin
 
-Real-time market data.
+Real-time cryptocurrency price data from CoinGecko.
 
-```typescript
-// plugins/markets.ts
-import type { Plugin } from "./src";
+| Config | Type | Description |
+|--------|------|-------------|
+| `symbols` | string[] | Coin IDs (e.g., "bitcoin") |
+| `refreshMinutes` | number | Cache refresh interval |
 
-interface MarketsConfig {
-  symbols: string[];
-  refreshMinutes: number;
-}
+**Actions:** `getPrice(symbol)`, `getAllPrices()`
 
-export function createMarketsPlugin(config: MarketsConfig): Plugin {
-  let cachedPrices: Record<string, number> = {};
+**Reference:** `plugins/markets.ts`
 
-  return {
-    name: "markets",
-    version: "1.0.0",
-
-    async init() {
-      // Initial price fetch
-      await this.refreshPrices();
-    },
-
-    async refreshPrices() {
-      // Fetch from CoinGecko or similar
-      const url = `https://api.coingecko.com/api/v3/simple/price?ids=${config.symbols.join(",")}&vs_currencies=usd`;
-      const response = await fetch(url);
-      const data = await response.json();
-      cachedPrices = data;
-    },
-
-    actions: {
-      async getPrice(params: { symbol: string }) {
-        return { success: true, price: cachedPrices[params.symbol] };
-      },
-
-      async getAllPrices() {
-        return { success: true, prices: cachedPrices };
-      }
-    }
-  };
-}
-```
-
-## Building Your Own
-
-Use these patterns to build custom plugins:
-
-```typescript
-import type { Plugin, TickContext } from "./src";
-import type { Agent } from "./src";
-
-interface MyPluginConfig {
-  apiKey: string;
-  enabled: boolean;
-}
-
-export function createMyPlugin(config: MyPluginConfig): Plugin {
-  // Internal state
-  let isConnected = false;
-
-  return {
-    name: "my-plugin",
-    version: "1.0.0",
-    description: "My custom plugin",
-
-    async init(agent: Agent) {
-      if (config.enabled) {
-        // Setup connections, load data
-        isConnected = true;
-      }
-    },
-
-    async cleanup(agent: Agent) {
-      // Close connections, save state
-      isConnected = false;
-    },
-
-    onTick(context: TickContext) {
-      if (!isConnected) return;
-
-      // React to agent state
-      console.log(`Tick: mood=${context.state.mood}`);
-    },
-
-    actions: {
-      async myAction(params: { data: string }, agent: Agent) {
-        if (!isConnected) {
-          return { success: false, error: "Not connected" };
-        }
-        return { success: true, result: params.data };
-      }
-    }
-  };
-}
-```
-
-## Registering Plugins
+## Using Example Plugins
 
 ```typescript
 import { Agent } from "./src";
@@ -313,29 +89,24 @@ const agent = new Agent({
       postEnabled: true,
       cooldownMinutes: 60
     }),
-
     createNewsPlugin({
-      sources: [
-        { name: "coindesk", url: "https://coindesk.com/rss" }
-      ],
+      sources: [{ name: "coindesk", url: "https://coindesk.com/rss" }],
       refreshMinutes: 15
     })
   ]
 });
 
-// Execute plugin action
-await agent.executeAction("twitter", "post", {
-  content: "Hello from ClarkOS!"
-});
+// Execute action
+await agent.executeAction("twitter", "post", { content: "Hello!" });
 ```
 
 ## Next Steps
 
 <CardGroup cols={2}>
-  <Card title="Community Plugins" href="/plugins/community">
-    Explore community-built plugins
-  </Card>
   <Card title="Build Your Own" href="/guides/custom-plugins">
-    Create custom plugins
+    Create custom plugins for your use case.
+  </Card>
+  <Card title="Plugin SDK" href="/api-reference/sdk/plugins">
+    Full plugin interface reference.
   </Card>
 </CardGroup>

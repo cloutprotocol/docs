@@ -3,237 +3,100 @@ title: "Plugin Overview"
 description: "Extending ClarkOS agents with plugins"
 ---
 
-Plugins are the primary extension mechanism for ClarkOS agents. They allow you to add capabilities without modifying core agent logic.
+Plugins are the primary extension mechanism for ClarkOS agents. They hook into the tick lifecycle, expose actions, and add capabilities without modifying core logic.
 
 ## What Plugins Can Do
 
-<CardGroup cols={2}>
-  <Card title="External Integrations">
-    Connect to Twitter, Discord, Telegram, trading platforms.
-  </Card>
-  <Card title="Data Sources">
-    Ingest news feeds, market data, social mentions.
-  </Card>
-  <Card title="Actions">
-    Post content, execute trades, send notifications.
-  </Card>
-  <Card title="Analytics">
-    Track metrics, log events, monitoring.
-  </Card>
-</CardGroup>
+| Category | Examples |
+|----------|----------|
+| External integrations | Twitter, Telegram, trading platforms |
+| Data sources | News feeds, market data, social mentions |
+| Actions | Post content, execute trades, send notifications |
+| Analytics | Track metrics, log events, monitoring |
 
-## Plugin Ecosystem
+## Plugin Interface
 
-### Official Plugins
+| Field | Type | Description |
+|-------|------|-------------|
+| `name` | string | Unique identifier |
+| `version` | string | Semver version |
+| `init` | function | Called on registration |
+| `cleanup` | function | Called on agent stop |
+| `onTick` | function | Called after each tick |
+| `actions` | object | Callable methods |
 
-Example plugins with full interface patterns:
-- **Twitter** - Posting and interaction
-- **Discord** - Bot integration
-- **News** - Multi-source aggregation
-- **Markets** - Price data
+**Reference:** `Plugin` interface in `src/plugins/types.ts`
 
-### Community Plugins
+## TickContext
 
-Built by the community:
-- **clarkos-plugin-reddit** - Reddit monitoring
-- **clarkos-plugin-notion** - Notion sync
-- **clarkos-plugin-voice** - Text-to-speech
+Plugins receive context on each tick:
 
-### Custom Plugins
+| Field | Type | Description |
+|-------|------|-------------|
+| `state` | AgentState | Mood, health, routine |
+| `memories` | Memory[] | Retrieved memories |
+| `knowledge` | Knowledge[] | Retrieved knowledge |
+| `recentLogs` | Log[] | Recent activity |
 
-Build your own for specific needs.
-
-## Quick Start
-
-### Using a Plugin
+## Using a Plugin
 
 ```typescript
 import { Agent } from "./src";
-import { ConvexBackend } from "./src/backend";
 import { createTwitterPlugin } from "./plugins/twitter";
 
 const agent = new Agent({
-  backend: new ConvexBackend({ url: process.env.CONVEX_URL! }),
+  backend,
   plugins: [
     createTwitterPlugin({
       apiKey: process.env.TWITTER_API_KEY!,
-      apiSecret: process.env.TWITTER_API_SECRET!,
-      accessToken: process.env.TWITTER_ACCESS_TOKEN!,
-      accessSecret: process.env.TWITTER_ACCESS_SECRET!,
       cooldownMinutes: 60
     })
   ]
 });
 ```
 
-### Building a Plugin
+## Building a Plugin
 
 ```typescript
-import type { Plugin, TickContext } from "./src";
-
 export const myPlugin: Plugin = {
   name: "my-plugin",
   version: "1.0.0",
-
-  init(agent) {
-    console.log("Plugin initialized");
-  },
-
-  onTick(context: TickContext) {
+  onTick(context) {
     console.log(`Mood: ${context.state.mood}`);
-  },
-
-  cleanup(agent) {
-    console.log("Plugin cleanup");
   }
 };
 ```
 
-## Plugin Interface
+**Reference:** See `plugins/` directory for implementation patterns.
 
-Every plugin implements this interface:
+## Example Plugins
 
-```typescript
-interface Plugin {
-  name: string;
-  version: string;
-  description?: string;
-  dependencies?: string[];
+The repository includes example plugin patterns:
 
-  init?(agent: Agent): void | Promise<void>;
-  cleanup?(agent: Agent): void | Promise<void>;
-  onTick?(context: TickContext): void | Promise<void>;
+| Plugin | Purpose | Reference |
+|--------|---------|-----------|
+| Twitter | Social posting with cooldowns | `plugins/twitter.ts` |
+| News | RSS/API feed aggregation | `plugins/news.ts` |
+| Markets | Price data fetching | `plugins/markets.ts` |
 
-  actions?: Record<string, ActionHandler>;
-}
-
-type ActionHandler = (
-  params: Record<string, unknown>,
-  agent: Agent
-) => Promise<unknown>;
-```
-
-## Tick Context
-
-Plugins receive context each tick:
-
-```typescript
-interface TickContext {
-  state: AgentState;
-  memories: Memory[];
-  knowledge: Knowledge[];
-  recentLogs: Log[];
-}
-
-interface AgentState {
-  mood: Mood;
-  health: number;
-  routine: Routine;
-  volatility: number;
-  counters: { ticks: number; feeds: number };
-  lastTick: string | null;
-  cryo: boolean;
-}
-```
-
-## Plugin Actions
-
-Plugins expose callable actions:
-
-```typescript
-export function createTradingPlugin(config: TradingConfig): Plugin {
-  return {
-    name: "trading",
-    version: "1.0.0",
-
-    actions: {
-      async buy(params: { symbol: string; amount: number }) {
-        // Execute buy order
-        return { success: true, orderId: "..." };
-      },
-
-      async sell(params: { symbol: string; amount: number }) {
-        // Execute sell order
-        return { success: true, orderId: "..." };
-      },
-
-      async getPortfolio() {
-        return { success: true, positions: [], totalValue: 10000 };
-      }
-    }
-  };
-}
-
-// Call from code
-const result = await agent.executeAction("trading", "buy", {
-  symbol: "ETH",
-  amount: 100
-});
-```
-
-## Configuration Patterns
-
-### Factory Functions
-
-```typescript
-interface TwitterConfig {
-  apiKey: string;
-  cooldownMinutes: number;
-}
-
-export function createTwitterPlugin(config: TwitterConfig): Plugin {
-  let lastPostTime = 0;
-
-  return {
-    name: "twitter",
-    version: "1.0.0",
-
-    onTick(context) {
-      const now = Date.now();
-      if (now - lastPostTime < config.cooldownMinutes * 60 * 1000) {
-        return; // Cooldown active
-      }
-      // ... posting logic
-    },
-
-    actions: {
-      async post(params: { content: string }) {
-        lastPostTime = Date.now();
-        return { success: true };
-      }
-    }
-  };
-}
-```
-
-### Environment-Based
-
-```typescript
-const plugin = createPlugin({
-  enabled: process.env.PLUGIN_ENABLED === "true",
-  apiKey: process.env.PLUGIN_API_KEY!
-});
-```
+<Note>
+These are reference implementations demonstrating plugin patterns. Configure API credentials to use.
+</Note>
 
 ## Best Practices
 
-**Keep plugins focused** - One plugin, one responsibility.
-
-**Handle errors gracefully** - Never crash the agent. Log errors and continue.
-
-**Respect rate limits** - Track API usage, implement cooldowns.
-
-**Make plugins testable** - Use dependency injection for external services.
-
-**Document thoroughly** - Include usage examples and configuration options.
+- **One responsibility** — Keep plugins focused on a single capability
+- **Handle errors** — Catch exceptions to avoid crashing the agent
+- **Respect rate limits** — Implement cooldowns for external APIs
+- **Test in isolation** — Use `MemoryBackend` for unit testing
 
 ## Next Steps
 
 <CardGroup cols={2}>
-  <Card title="Official Plugins" href="/plugins/official">
-    Example plugins with full patterns
+  <Card title="Example Plugins" href="/plugins/official">
+    Reference implementations with full patterns.
   </Card>
   <Card title="Build Custom" href="/guides/custom-plugins">
-    Step-by-step development guide
+    Step-by-step plugin development guide.
   </Card>
 </CardGroup>
