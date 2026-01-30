@@ -3,129 +3,65 @@ title: "Building Custom Plugins"
 description: "Extend your agent with custom capabilities"
 ---
 
-Plugins are the primary way to extend ClarkOS agents. This guide covers building production-ready plugins.
+## Overview
+
+Plugins are the primary way to extend ClarkOS agents. They hook into the tick lifecycle to add custom behavior—posting to social media, fetching data, executing trades, or anything else.
 
 ## Plugin Interface
 
 Every plugin implements this interface:
 
-```typescript
-interface Plugin {
-  name: string;
-  version: string;
-  description?: string;
-  dependencies?: string[];
+| Property | Required | Description |
+|----------|----------|-------------|
+| `name` | Yes | Unique identifier |
+| `version` | Yes | Semver version string |
+| `description` | No | Human-readable description |
+| `dependencies` | No | Other plugins that must load first |
+| `init()` | No | Called once when agent starts |
+| `cleanup()` | No | Called when agent stops |
+| `onTick()` | No | Called after every tick |
+| `actions` | No | Callable functions exposed to agent |
 
-  init?(agent: Agent): void | Promise<void>;
-  cleanup?(agent: Agent): void | Promise<void>;
-  onTick?(context: TickContext): void | Promise<void>;
-
-  actions?: Record<string, ActionHandler>;
-}
-
-type ActionHandler = (
-  params: Record<string, unknown>,
-  agent: Agent
-) => Promise<unknown>;
-```
-
-## Tick Context
-
-Your plugin receives context on each tick:
-
-```typescript
-interface TickContext {
-  state: AgentState;
-  memories: Memory[];
-  knowledge: Knowledge[];
-  recentLogs: Log[];
-}
-
-interface AgentState {
-  mood: "neutral" | "expressive" | "curious" | "excited" | "reflective" | "concerned";
-  health: number;      // 0-100
-  routine: "morning" | "day" | "evening" | "overnight";
-  volatility: number;  // 0-1
-  counters: { ticks: number; feeds: number };
-  lastTick: string | null;
-  cryo: boolean;
-}
-```
+**Reference:** `Plugin` interface in `src/plugins/types.ts`
 
 ## Basic Plugin
 
 ```typescript
-import type { Plugin, TickContext } from "./src/plugins";
+import type { Plugin } from "./src/plugins";
 
 export const loggerPlugin: Plugin = {
   name: "logger",
   version: "1.0.0",
-  description: "Logs tick activity",
 
-  onTick(context: TickContext) {
-    console.log(`Tick - Mood: ${context.state.mood}, Health: ${context.state.health}`);
-    console.log(`Loaded ${context.memories.length} memories`);
+  onTick(context) {
+    console.log(`Tick: mood=${context.state.mood}, health=${context.state.health}`);
   }
 };
 ```
 
-## Plugin Factory Pattern
+## Factory Pattern (Recommended)
 
-For configurable plugins, use a factory function:
+Use a factory function for configurable plugins:
 
 ```typescript
-import type { Plugin, TickContext } from "./src/plugins";
-import type { Agent } from "./src";
-
-interface AnalyticsConfig {
-  endpoint: string;
-  batchSize: number;
+interface MyPluginConfig {
+  enabled: boolean;
+  cooldownMs: number;
 }
 
-export function createAnalyticsPlugin(config: AnalyticsConfig): Plugin {
-  const events: unknown[] = [];
+export function createMyPlugin(config: MyPluginConfig): Plugin {
+  let lastAction = 0;
 
   return {
-    name: "analytics",
+    name: "my-plugin",
     version: "1.0.0",
 
-    init(agent: Agent) {
-      console.log(`Analytics plugin initialized, endpoint: ${config.endpoint}`);
-    },
+    onTick(context) {
+      if (!config.enabled) return;
+      if (Date.now() - lastAction < config.cooldownMs) return;
 
-    onTick(context: TickContext) {
-      events.push({
-        type: "tick",
-        mood: context.state.mood,
-        health: context.state.health,
-        timestamp: Date.now()
-      });
-
-      if (events.length >= config.batchSize) {
-        this.flush();
-      }
-    },
-
-    cleanup(agent: Agent) {
-      this.flush();
-    },
-
-    flush() {
-      if (events.length === 0) return;
-      // Send to analytics endpoint
-      console.log(`Flushing ${events.length} events`);
-      events.length = 0;
-    },
-
-    actions: {
-      async getEventCount() {
-        return { success: true, count: events.length };
-      },
-
-      async flush() {
-        this.flush();
-        return { success: true };
-      }
+      // Do something
+      lastAction = Date.now();
     }
   };
 }
@@ -135,114 +71,72 @@ export function createAnalyticsPlugin(config: AnalyticsConfig): Plugin {
 
 ### init()
 
-Called when the agent starts:
-
-```typescript
-async init(agent: Agent) {
-  // Set up connections
-  this.db = await connectToDatabase();
-  console.log("Plugin initialized");
-}
-```
+Called once when the plugin is registered. Use for setup:
+- Establish connections
+- Validate configuration
+- Load initial state
 
 ### cleanup()
 
-Called when the agent shuts down:
-
-```typescript
-async cleanup(agent: Agent) {
-  await this.db.close();
-  console.log("Plugin cleaned up");
-}
-```
+Called when the agent stops. Use for teardown:
+- Close connections
+- Flush buffers
+- Save state
 
 ### onTick()
 
-Called after every tick:
+Called after every tick with full context. Use for reactive behavior:
+- Check state conditions before acting
+- Access memories and knowledge
+- Trigger external actions
 
-```typescript
-onTick(context: TickContext) {
-  // React to state changes
-  if (context.state.mood === "expressive" && context.state.health > 50) {
-    // Agent is healthy and expressive - good time for output
-  }
+**Reference:** `TickContext` in `src/plugins/types.ts`
 
-  // Access memories
-  const recentEpisodic = context.memories.filter(m => m.type === "episodic");
+## Plugin Actions
 
-  // Check knowledge
-  const marketData = context.knowledge.filter(k => k.type === "market");
-}
-```
-
-## Custom Actions
-
-Plugins expose actions for external invocation:
+Expose callable functions via the `actions` property:
 
 ```typescript
 actions: {
-  async getData(params: { query: string }, agent: Agent) {
-    const results = await this.search(params.query);
-    return { success: true, data: results };
+  async getData(params, agent) {
+    return { success: true, data: "..." };
   },
 
-  async setConfig(params: { key: string; value: unknown }) {
-    this.config[params.key] = params.value;
+  async doSomething(params, agent) {
     return { success: true };
   }
 }
 ```
 
-Invoke actions:
-
+Call actions from code:
 ```typescript
-// From code
-const result = await agent.executeAction("analytics", "getData", {
-  query: "recent events"
-});
-
-// Via HTTP
-// POST /actions/analytics/getData
+const result = await agent.executeAction("my-plugin", "getData", { query: "..." });
 ```
 
 ## Plugin Dependencies
 
-Plugins can depend on other plugins:
+Declare dependencies to ensure load order:
 
 ```typescript
 export const enhancedPlugin: Plugin = {
   name: "enhanced",
-  version: "1.0.0",
-  dependencies: ["analytics", "logger"],
+  dependencies: ["base-plugin", "analytics"],
 
-  init(agent: Agent) {
-    const analytics = agent.getPlugin("analytics");
-    const logger = agent.getPlugin("logger");
-
-    if (!analytics || !logger) {
-      throw new Error("Missing required dependencies");
-    }
+  init(agent) {
+    const base = agent.getPlugin("base-plugin");
+    // base is guaranteed to exist
   }
 };
 ```
 
+**Reference:** `sortPluginsByDependencies()` in `src/plugins/loader.ts` handles topological sorting
+
 ## Registering Plugins
 
 ```typescript
-import { Agent } from "./src";
-import { ConvexBackend } from "./src/backend";
-import { loggerPlugin } from "./plugins/logger";
-import { createAnalyticsPlugin } from "./plugins/analytics";
-
 const agent = new Agent({
-  backend: new ConvexBackend({ url: process.env.CONVEX_URL! }),
-  plugins: [
-    loggerPlugin,
-    createAnalyticsPlugin({
-      endpoint: "https://analytics.example.com",
-      batchSize: 100
-    })
-  ]
+  backend,
+  plugins: [loggerPlugin, createMyPlugin({ enabled: true, cooldownMs: 60000 })]
 });
 
 // Or add later
@@ -251,64 +145,50 @@ agent.use(anotherPlugin);
 
 ## Error Handling
 
-Handle errors gracefully:
+Never let plugin errors crash the agent:
 
 ```typescript
-async onTick(context: TickContext) {
+onTick(context) {
   try {
     await this.riskyOperation();
   } catch (error) {
     console.error("Plugin error:", error);
-    // Don't re-throw - let agent continue
+    // Don't re-throw—let agent continue
   }
 }
 ```
 
 ## Testing Plugins
 
-Use dependency injection:
+Use the `MemoryBackend` for testing without a real database:
 
 ```typescript
-export function createTestablePlugin(deps: {
-  http: HttpClient;
-  logger: Logger;
-}): Plugin {
-  return {
-    name: "testable",
-    version: "1.0.0",
+import { MemoryBackend } from "./src/backend/memory";
 
-    async onTick(context: TickContext) {
-      const data = await deps.http.get("/api/data");
-      deps.logger.info("Fetched", data);
-    }
-  };
-}
+const backend = new MemoryBackend();
+const agent = new Agent({ backend, plugins: [myPlugin] });
 
-// In tests
-const mockHttp = { get: jest.fn().mockResolvedValue({ foo: "bar" }) };
-const mockLogger = { info: jest.fn() };
-const plugin = createTestablePlugin({ http: mockHttp, logger: mockLogger });
+await agent.tick();
+// Assert expected behavior
 ```
+
+**Reference:** `MemoryBackend` in `src/backend/memory.ts`
 
 ## Best Practices
 
-**Keep plugins focused** - One plugin, one responsibility.
-
-**Handle failures gracefully** - Never let plugin errors crash the agent.
-
-**Respect rate limits** - Track API usage, implement cooldowns.
-
-**Make plugins configurable** - Use factory functions with config objects.
-
-**Write tests** - Use dependency injection for testability.
+- **Single responsibility**: One plugin, one purpose
+- **Graceful failures**: Log errors, don't throw
+- **Respect rate limits**: Track API usage, implement cooldowns
+- **Configurable**: Use factory functions with config objects
+- **Testable**: Use dependency injection
 
 ## Next Steps
 
 <CardGroup cols={2}>
   <Card title="Official Plugins" href="/plugins/official">
-    Available official plugins
+    Example plugins to learn from.
   </Card>
-  <Card title="Examples" href="/examples/basic-agent">
-    Complete agent implementations
+  <Card title="Plugin SDK Reference" href="/api-reference/sdk/plugins">
+    Complete API documentation.
   </Card>
 </CardGroup>

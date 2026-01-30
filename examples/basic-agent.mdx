@@ -1,155 +1,62 @@
 ---
 title: "Basic Agent"
-description: "A simple autonomous agent example"
+description: "A minimal autonomous agent example"
 ---
 
-This example shows a minimal ClarkOS agent that runs autonomously, stores memories, and generates conscious thoughts.
+## Overview
 
-## Full Code
+This example shows a minimal ClarkOS agent that ticks autonomously, maintains state, and logs activity. It demonstrates the core patterns without extra complexity.
 
-```typescript
-// convex/schema.ts
-import { defineSchema, defineTable } from "convex/server";
-import { v } from "convex/values";
+## What It Does
 
-export default defineSchema({
-  state: defineTable({
-    mood: v.string(),
-    health: v.number(),
-    routine: v.string(),
-    volatility: v.number(),
-    summary: v.string(),
-    updatedAt: v.number(),
-  }),
+- Ticks every 5 minutes via Convex cron
+- Maintains mood, health, and routine state
+- Logs each tick for historical reference
+- Exposes HTTP endpoints for monitoring
 
-  logs: defineTable({
-    mood: v.string(),
-    health: v.number(),
-    routine: v.string(),
-    summary: v.string(),
-    detail: v.string(),
-    timestamp: v.number(),
-  }).index("by_timestamp", ["timestamp"]),
+## Project Structure
 
-  memories: defineTable({
-    type: v.string(),
-    content: v.string(),
-    embedding: v.array(v.float64()),
-    importance: v.number(),
-    createdAt: v.number(),
-  })
-    .index("by_type", ["type"])
-    .vectorIndex("by_embedding", {
-      vectorField: "embedding",
-      dimensions: 768,
-    }),
-});
+```
+my-agent/
+├── convex/
+│   ├── schema.ts      # Database tables
+│   ├── tick.ts        # Tick execution logic
+│   ├── crons.ts       # Scheduled execution
+│   └── http.ts        # REST endpoints
+└── .env.local         # API keys
 ```
 
-```typescript
-// convex/tick.ts
-import { action, mutation, query } from "./_generated/server";
-import { api } from "./_generated/api";
+## Schema
 
-export const getState = query({
-  handler: async (ctx) => {
-    return await ctx.db.query("state").first() || {
-      mood: "contemplative",
-      health: 75,
-      routine: "day",
-      volatility: 0.3,
-      summary: "Initializing...",
-      updatedAt: Date.now(),
-    };
-  },
-});
+Define three tables: `state` (singleton), `logs` (history), and `memories`.
 
-export const runTick = action({
-  handler: async (ctx) => {
-    const state = await ctx.runQuery(api.tick.getState);
+**Reference:** See `convex/schema.ts` in the template repository.
 
-    // Calculate routine (PST timezone)
-    const hour = new Date().getHours();
-    const routine =
-      hour >= 6 && hour < 12 ? "morning" :
-      hour >= 12 && hour < 18 ? "day" :
-      hour >= 18 && hour < 22 ? "evening" : "overnight";
+| Table | Purpose |
+|-------|---------|
+| `state` | Single row with current mood, health, routine |
+| `logs` | Historical tick results |
+| `memories` | Agent memories with embeddings |
 
-    // Call LLM
-    const response = await fetch("https://openrouter.ai/api/v1/chat/completions", {
-      method: "POST",
-      headers: {
-        "Authorization": `Bearer ${process.env.OPENROUTER_KEY}`,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        model: "anthropic/claude-3.5-sonnet",
-        messages: [
-          {
-            role: "system",
-            content: `You are an autonomous AI agent. Current state: mood=${state.mood}, health=${state.health}, routine=${routine}.
-Respond with JSON: {"mood": "neutral|expressive|curious|excited|reflective|concerned", "health": number, "volatility": number, "summary": "brief state", "detail": "full thoughts"}`
-          },
-          {
-            role: "user",
-            content: "Process your current state and generate your response."
-          }
-        ],
-        response_format: { type: "json_object" },
-      }),
-    });
+## Tick Logic
 
-    const data = await response.json();
-    const result = JSON.parse(data.choices[0].message.content);
+The tick function:
+1. Loads current state
+2. Calculates routine from time
+3. Calls LLM with context
+4. Commits new state
+5. Logs the result
 
-    // Commit result
-    await ctx.runMutation(api.tick.commit, { ...result, routine });
+**Reference:** See `convex/tick.ts` in the template repository.
 
-    return result;
-  },
-});
+Key functions:
+- `getState` — Query to fetch current state
+- `runTick` — Action that orchestrates the tick
+- `commit` — Mutation to persist results
 
-export const commit = mutation({
-  args: {
-    mood: v.string(),
-    health: v.number(),
-    volatility: v.number(),
-    summary: v.string(),
-    detail: v.string(),
-    routine: v.string(),
-  },
-  handler: async (ctx, args) => {
-    const existing = await ctx.db.query("state").first();
-    if (existing) {
-      await ctx.db.patch(existing._id, {
-        mood: args.mood,
-        health: args.health,
-        volatility: args.volatility,
-        summary: args.summary,
-        updatedAt: Date.now(),
-      });
-    } else {
-      await ctx.db.insert("state", {
-        mood: args.mood,
-        health: args.health,
-        routine: args.routine,
-        volatility: args.volatility,
-        summary: args.summary,
-        updatedAt: Date.now(),
-      });
-    }
+## Scheduled Execution
 
-    await ctx.db.insert("logs", {
-      mood: args.mood,
-      health: args.health,
-      routine: args.routine,
-      summary: args.summary,
-      detail: args.detail,
-      timestamp: Date.now(),
-    });
-  },
-});
-```
+Use Convex crons for automatic ticking:
 
 ```typescript
 // convex/crons.ts
@@ -162,97 +69,57 @@ crons.interval("tick", { minutes: 5 }, api.tick.runTick);
 export default crons;
 ```
 
-```typescript
-// convex/http.ts
-import { httpRouter } from "convex/server";
-import { api } from "./_generated/api";
+## HTTP Endpoints
 
-const http = httpRouter();
+Expose monitoring and control endpoints:
 
-http.route({
-  path: "/health",
-  method: "GET",
-  handler: async (ctx) => {
-    return new Response(JSON.stringify({ status: "ok" }), {
-      headers: { "Content-Type": "application/json" },
-    });
-  },
-});
+| Endpoint | Method | Description |
+|----------|--------|-------------|
+| `/health` | GET | Health check |
+| `/state` | GET | Current agent state |
+| `/tick` | POST | Manual tick trigger (authenticated) |
 
-http.route({
-  path: "/state",
-  method: "GET",
-  handler: async (ctx) => {
-    const state = await ctx.runQuery(api.tick.getState);
-    return new Response(JSON.stringify(state), {
-      headers: { "Content-Type": "application/json" },
-    });
-  },
-});
+**Reference:** See `convex/http.ts` in the template repository.
 
-http.route({
-  path: "/tick",
-  method: "POST",
-  handler: async (ctx, request) => {
-    const auth = request.headers.get("Authorization");
-    if (auth !== `Bearer ${process.env.TICK_TOKEN}`) {
-      return new Response("Unauthorized", { status: 401 });
-    }
-
-    const result = await ctx.runAction(api.tick.runTick);
-    return new Response(JSON.stringify(result), {
-      headers: { "Content-Type": "application/json" },
-    });
-  },
-});
-
-export default http;
-```
-
-## Running the Example
+## Running
 
 ```bash
-# Install dependencies
 npm install convex
-
-# Start Convex dev server
 npx convex dev
 
 # Test endpoints
 curl http://localhost:3001/health
 curl http://localhost:3001/state
-curl -X POST http://localhost:3001/tick -H "Authorization: Bearer your-token"
+curl -X POST http://localhost:3001/tick -H "Authorization: Bearer $TICK_TOKEN"
 ```
 
-## What This Does
+## Extending
 
-1. **Ticks every 5 minutes** via Convex cron
-2. **Maintains state** with mood, health, and routine
-3. **Logs activity** for historical reference
-4. **Exposes HTTP API** for monitoring and manual control
-
-## Extending This Example
-
-Add memory storage:
-
+**Add memory storage:**
 ```typescript
-// After committing state, store a memory
+// After committing state
 await ctx.runMutation(api.memories.store, {
   type: "episodic",
-  content: args.detail,
+  content: result.detail,
   importance: 0.5,
 });
 ```
 
-Add consciousness:
-
+**Add plugins:**
 ```typescript
-// Generate thoughts from recent activity
-const thought = await ctx.runAction(api.consciousness.process, {
-  seeds: [args.summary],
+const agent = new Agent({
+  backend,
+  plugins: [loggerPlugin, analyticsPlugin]
 });
 ```
 
-<Card title="Trading Agent" icon="chart-line" href="/examples/trading-agent">
-  Next: Build a market-aware trading agent.
-</Card>
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="Trading Agent" href="/examples/trading-agent">
+    Add market data and paper trading.
+  </Card>
+  <Card title="Your First Agent" href="/guides/your-first-agent">
+    Comprehensive walkthrough.
+  </Card>
+</CardGroup>

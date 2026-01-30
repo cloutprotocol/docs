@@ -3,476 +3,179 @@ title: "Plugins SDK"
 description: "SDK reference for building plugins"
 ---
 
-This reference covers the complete plugin interface and development patterns.
+## Overview
+
+Plugins extend agent functionality by hooking into the tick lifecycle, exposing actions, and managing state. They're the primary way to add capabilities like social posting, trading, or custom integrations.
+
+**Reference:** `src/plugins/types.ts`
 
 ## Plugin Interface
 
-```typescript
-interface Plugin {
-  // Required
-  name: string;
-  version: string;
-
-  // Optional metadata
-  description?: string;
-
-  // Dependencies (other plugin names that must load first)
-  dependencies?: string[];
-
-  // Lifecycle hooks
-  init?(agent: Agent): void | Promise<void>;
-  cleanup?(agent: Agent): void | Promise<void>;
-
-  // Tick hook
-  onTick?(context: TickContext): void | Promise<void>;
-
-  // Actions (callable via agent.executeAction)
-  actions?: Record<string, ActionHandler>;
-}
-
-type ActionHandler = (
-  params: Record<string, unknown>,
-  agent: Agent
-) => Promise<unknown>;
-```
-
-## Creating Plugins
-
-### Basic Plugin
-
-```typescript
-import type { Plugin, TickContext } from "./src";
-
-export const myPlugin: Plugin = {
-  name: "my-plugin",
-  version: "1.0.0",
-  description: "Does something useful",
-
-  async init(agent) {
-    console.log("Plugin initialized");
-  },
-
-  async onTick(context) {
-    console.log(`Tick completed, mood: ${context.state.mood}`);
-  },
-
-  async cleanup(agent) {
-    console.log("Plugin cleaned up");
-  },
-};
-```
-
-### Factory Pattern (Recommended)
-
-```typescript
-import type { Plugin, TickContext } from "./src";
-
-interface MyPluginConfig {
-  enabled: boolean;
-  apiKey: string;
-  cooldownMs: number;
-}
-
-export function createMyPlugin(config: MyPluginConfig): Plugin {
-  // Plugin state
-  let lastAction = 0;
-
-  return {
-    name: "my-plugin",
-    version: "1.0.0",
-
-    async init(agent) {
-      console.log("Initialized with config:", config);
-    },
-
-    async onTick(context) {
-      if (!config.enabled) return;
-
-      // Respect cooldown
-      if (Date.now() - lastAction < config.cooldownMs) {
-        return;
-      }
-
-      // Do something
-      lastAction = Date.now();
-    },
-  };
-}
-```
+| Field | Type | Required | Description |
+|-------|------|----------|-------------|
+| `name` | string | Yes | Unique identifier |
+| `version` | string | Yes | Semver version |
+| `description` | string | No | Human-readable description |
+| `dependencies` | string[] | No | Plugins that must load first |
+| `init` | function | No | Called once on registration |
+| `cleanup` | function | No | Called when agent stops |
+| `onTick` | function | No | Called after every tick |
+| `actions` | object | No | Callable methods |
 
 ## Lifecycle Hooks
 
-### init()
-
-Called once when the plugin is registered with the agent. Use for:
-- Establishing connections
-- Validating configuration
-- One-time setup
-
-```typescript
-async init(agent) {
-  // Validate configuration
-  if (!this.config.apiKey) {
-    throw new Error("API key required");
-  }
-
-  // Connect to external service
-  this.client = await createClient({
-    apiKey: this.config.apiKey,
-  });
-
-  console.log("Plugin ready");
-}
-```
-
-### cleanup()
-
-Called when the agent stops. Use for:
-- Closing connections
-- Flushing buffers
-- Saving state
-
-```typescript
-async cleanup(agent) {
-  // Flush pending operations
-  await this.flushQueue();
-
-  // Close connections
-  if (this.client) {
-    await this.client.close();
-  }
-
-  console.log("Plugin cleaned up");
-}
-```
-
-### onTick()
-
-Called after every tick. Use for:
-- Reacting to state changes
-- Executing actions based on conditions
-- Processing tick results
-
-```typescript
-async onTick(context) {
-  // Access current state
-  const { mood, health, routine } = context.state;
-
-  // Access retrieved data
-  const { memories, knowledge, recentLogs } = context;
-
-  // Check conditions and act
-  if (mood === "expressive" && health > 50) {
-    // Do something
-  }
-}
-```
+| Hook | When Called | Use For |
+|------|-------------|---------|
+| `init(agent)` | Plugin registration | Setup, connections, validation |
+| `onTick(context)` | After each tick | React to state, execute actions |
+| `cleanup(agent)` | Agent stops | Close connections, flush buffers |
 
 ## TickContext
 
 The context passed to `onTick`:
 
+| Field | Type | Description |
+|-------|------|-------------|
+| `state` | AgentState | Current mood, health, routine |
+| `memories` | Memory[] | Retrieved memories for tick |
+| `knowledge` | Knowledge[] | Retrieved knowledge items |
+| `recentLogs` | Log[] | Recent activity logs |
+
+**Reference:** `TickContext` interface in `src/types.ts`
+
+## Creating Plugins
+
+### Static Plugin
+
 ```typescript
-interface TickContext {
-  // Current agent state
-  state: AgentState;
+export const myPlugin: Plugin = {
+  name: "my-plugin",
+  version: "1.0.0",
+  onTick(context) {
+    console.log(`Tick: ${context.state.mood}`);
+  }
+};
+```
 
-  // Memories retrieved for this tick
-  memories: Memory[];
+### Factory Pattern (Recommended)
 
-  // Knowledge items retrieved for this tick
-  knowledge: Knowledge[];
+Use factories when plugins need configuration or internal state:
 
-  // Recent activity logs
-  recentLogs: Log[];
-}
-
-interface AgentState {
-  mood: Mood;
-  health: number;
-  routine: Routine;
-  volatility: number;
-  counters: { ticks: number; feeds: number };
-  lastTick: string | null;
-  cryo: boolean;
+```typescript
+export function createMyPlugin(config: MyConfig): Plugin {
+  let state = {};  // Internal state
+  return {
+    name: "my-plugin",
+    version: "1.0.0",
+    onTick(context) { /* use config and state */ }
+  };
 }
 ```
+
+**Reference:** See factory examples in `plugins/social.ts`, `plugins/markets.ts`
 
 ## Plugin Actions
 
-Plugins can expose callable actions:
+Actions are methods exposed by plugins, callable via the agent:
 
 ```typescript
-export const tradingPlugin: Plugin = {
-  name: "trading",
-  version: "1.0.0",
+actions: {
+  async buy(params, agent) {
+    return { success: true };
+  }
+}
 
-  actions: {
-    async buy(params, agent) {
-      const { symbol, amount } = params as { symbol: string; amount: number };
-      // Execute buy order
-      return { success: true, orderId: "..." };
-    },
-
-    async sell(params, agent) {
-      const { symbol, amount } = params as { symbol: string; amount: number };
-      // Execute sell order
-      return { success: true, orderId: "..." };
-    },
-
-    async getPortfolio(params, agent) {
-      return { positions: [], totalValue: 10000 };
-    },
-  },
-};
+// Call from agent
+await agent.executeAction("plugin-name", "buy", { symbol: "ETH" });
 ```
 
-### Calling Actions
+## Registration
 
 ```typescript
-// Register the plugin
-agent.use(tradingPlugin);
-
-// Call an action
-const result = await agent.executeAction("trading", "buy", {
-  symbol: "ETH",
-  amount: 100,
-});
-
-console.log(result); // { success: true, orderId: "..." }
-```
-
-## Plugin Dependencies
-
-Declare plugins that must load first:
-
-```typescript
-export const enhancedPlugin: Plugin = {
-  name: "enhanced-twitter",
-  version: "1.0.0",
-  dependencies: ["twitter", "analytics"],
-
-  async init(agent) {
-    // Dependencies are guaranteed to be loaded
-    const twitter = agent.getPlugin("twitter");
-    const analytics = agent.getPlugin("analytics");
-
-    if (!twitter || !analytics) {
-      throw new Error("Required plugins not found");
-    }
-  },
-};
-```
-
-## Plugin Registration
-
-### Single Plugin
-
-```typescript
+// Single plugin
 agent.use(myPlugin);
+
+// Multiple at construction
+new Agent({ backend, plugins: [plugin1, plugin2] });
+
+// Get plugin reference
+const plugin = agent.getPlugin("name");
+const all = agent.getPlugins();
 ```
 
-### Multiple Plugins
+**Reference:** `agent.use()` in `src/core/agent.ts`
+
+## Dependencies
+
+Plugins can declare dependencies that must load first:
 
 ```typescript
-const agent = new Agent({
-  backend,
-  plugins: [
-    analyticsPlugin,
-    twitterPlugin,
-    tradingPlugin,
-  ],
-});
-```
-
-### Get Plugin Reference
-
-```typescript
-// Get a specific plugin
-const plugin = agent.getPlugin("analytics");
-
-// Get all plugins
-const allPlugins = agent.getPlugins();
-```
-
-## Error Handling
-
-Plugins should handle errors gracefully to avoid crashing the agent:
-
-```typescript
-async onTick(context) {
-  try {
-    await this.riskyOperation();
-  } catch (error) {
-    // Log the error
-    console.error(`Plugin ${this.name} error:`, error);
-
-    // Don't re-throw - let agent continue
-    // The agent will continue to the next tick
+{
+  name: "enhanced-twitter",
+  dependencies: ["twitter", "analytics"],
+  init(agent) {
+    const twitter = agent.getPlugin("twitter");
   }
 }
 ```
 
+The agent validates dependency order during registration.
+
+**Reference:** `loadPlugins()` in `src/plugins/loader.ts`
+
 ## Configuration Patterns
 
-### Environment-Based
+| Pattern | When to Use |
+|---------|-------------|
+| Environment variables | API keys, feature flags |
+| Factory parameters | Cooldowns, limits, options |
+| Runtime actions | Dynamic reconfiguration |
+
+## Error Handling
+
+Plugins should catch errors to avoid crashing the agent:
 
 ```typescript
-export const myPlugin = createMyPlugin({
-  enabled: process.env.PLUGIN_ENABLED === "true",
-  apiKey: process.env.PLUGIN_API_KEY!,
-  cooldownMs: Number(process.env.PLUGIN_COOLDOWN) || 60000,
-});
-```
-
-### Runtime Configuration
-
-Store configuration in plugin closure:
-
-```typescript
-export function createConfigurablePlugin(initialConfig: Config): Plugin {
-  let config = { ...initialConfig };
-
-  return {
-    name: "configurable",
-    version: "1.0.0",
-
-    // Expose action to update config
-    actions: {
-      async updateConfig(params) {
-        config = { ...config, ...params };
-        return { success: true };
-      },
-
-      async getConfig() {
-        return config;
-      },
-    },
-
-    onTick(context) {
-      if (!config.enabled) return;
-      // Use current config
-    },
-  };
+onTick(context) {
+  try {
+    await this.riskyOperation();
+  } catch (error) {
+    console.error("Plugin error:", error);
+    // Don't re-throw - let agent continue
+  }
 }
 ```
 
-## Testing Plugins
+## Testing
 
 ```typescript
-import { createAgent, MemoryBackend } from "./src";
-
-describe("My Plugin", () => {
-  test("onTick handles expressive mood", async () => {
-    // Create test agent with in-memory backend
-    const agent = createAgent({
-      backend: new MemoryBackend(),
-      plugins: [myPlugin],
-    });
-
-    // Execute a tick
-    const result = await agent.tick();
-
-    // Verify behavior
-    expect(result.success).toBe(true);
-  });
+const agent = createAgent({
+  backend: new MemoryBackend(),
+  plugins: [myPlugin]
 });
+const result = await agent.tick();
 ```
 
-## Plugin Examples
+**Reference:** Test patterns in `tests/plugins/`
 
-### Logger Plugin
+## Publishing
 
-```typescript
-export const loggerPlugin: Plugin = {
-  name: "logger",
-  version: "1.0.0",
-
-  onTick(context) {
-    console.log(`[Tick] mood=${context.state.mood} health=${context.state.health}`);
-    console.log(`[Tick] memories=${context.memories.length} knowledge=${context.knowledge.length}`);
-  },
-};
-```
-
-### Cooldown Plugin
-
-```typescript
-export function createCooldownPlugin(cooldownMs: number): Plugin {
-  let lastAction = 0;
-
-  return {
-    name: "cooldown",
-    version: "1.0.0",
-
-    actions: {
-      async canAct() {
-        const now = Date.now();
-        const canAct = now - lastAction >= cooldownMs;
-        return { canAct, waitMs: canAct ? 0 : cooldownMs - (now - lastAction) };
-      },
-
-      async markAction() {
-        lastAction = Date.now();
-        return { marked: true };
-      },
-    },
-  };
-}
-```
-
-### Health Monitor Plugin
-
-```typescript
-export const healthMonitor: Plugin = {
-  name: "health-monitor",
-  version: "1.0.0",
-
-  onTick(context) {
-    if (context.state.health < 20) {
-      console.warn("Agent health critical:", context.state.health);
-    }
-
-    if (context.state.cryo) {
-      console.warn("Agent is in cryo mode");
-    }
-  },
-};
-```
-
-## Publishing Plugins
-
-### Package Structure
+Package structure for distributing plugins:
 
 ```
 clarkos-plugin-myname/
-├── src/
-│   ├── index.ts
-│   └── plugin.ts
-├── package.json
-├── tsconfig.json
+├── src/index.ts
+├── package.json (keywords: ["clarkos", "clarkos-plugin"])
 └── README.md
-```
-
-### Package.json
-
-```json
-{
-  "name": "clarkos-plugin-myname",
-  "version": "1.0.0",
-  "main": "dist/index.js",
-  "types": "dist/index.d.ts",
-  "keywords": ["clarkos", "clarkos-plugin", "agent-plugin"]
-}
 ```
 
 ## Next Steps
 
 <CardGroup cols={2}>
-  <Card title="Agent SDK" icon="robot" href="/api-reference/sdk/agent">
+  <Card title="Agent SDK" href="/api-reference/sdk/agent">
     Main agent class reference.
   </Card>
-  <Card title="Plugin Guide" icon="hammer" href="/guides/custom-plugins">
+  <Card title="Plugin Guide" href="/guides/custom-plugins">
     Step-by-step plugin development.
   </Card>
 </CardGroup>

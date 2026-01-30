@@ -3,330 +3,157 @@ title: "Memory Store SDK"
 description: "SDK reference for the memory system"
 ---
 
-The memory store provides the interface for storing, retrieving, and managing agent memories.
+## Overview
 
-## MemoryStore Interface
+The `MemoryStore` interface provides methods for storing, retrieving, and managing agent memories.
 
-### Getting the Store
+**Reference:** `src/memory/store.ts`
+
+## Getting the Store
 
 ```typescript
-// From agent instance
+// From agent
 const memory = agent.memory;
 
-// Or create standalone with a backend
-import { createMemoryStore, ConvexBackend } from "./src";
-
-const backend = new ConvexBackend({ url: process.env.CONVEX_URL! });
-const memory = createMemoryStore(backend);
+// Or create standalone
+import { createMemoryStore, MemoryBackend } from "./src";
+const memory = createMemoryStore(new MemoryBackend());
 ```
 
-## Interface Methods
+## Methods
 
-The MemoryStore interface provides these methods:
-
-```typescript
-interface MemoryStore {
-  store(options: StoreMemoryOptions): Promise<Memory>;
-  get(options?: GetMemoriesOptions): Promise<Memory[]>;
-  search(options: SearchMemoriesOptions): Promise<Memory[]>;
-  getById(id: string): Promise<Memory | null>;
-  update(id: string, updates: Partial<Memory>): Promise<Memory>;
-  delete(id: string): Promise<void>;
-  getStats(): Promise<MemoryStats>;
-}
-```
+| Method | Description |
+|--------|-------------|
+| `store(options)` | Store a new memory |
+| `get(options)` | Retrieve with filters |
+| `search(options)` | Semantic search |
+| `getById(id)` | Get specific memory |
+| `update(id, updates)` | Modify a memory |
+| `delete(id)` | Remove a memory |
+| `getStats()` | Get statistics |
 
 ## Storing Memories
 
-### Basic Store
-
 ```typescript
 const memory = await memoryStore.store({
-  content: "Met Alice at the conference",
-  type: "episodic",
-  importance: 0.7,
+  content: "Learned about vector databases",
+  type: "semantic",          // episodic, semantic, emotional, procedural, reflection
+  scope: "short_term",       // short_term, working, long_term
+  importance: 0.7,           // 0-1
+  tags: ["learning"],
+  sourceType: "tick",
+  deduplicate: true,         // Check for duplicates
 });
-```
-
-### Full Options
-
-```typescript
-const memory = await memoryStore.store({
-  // Required
-  content: "Met Alice at the conference",
-
-  // Optional with defaults
-  type: "episodic",        // Default: "semantic"
-  scope: "short_term",     // Default: "short_term"
-  importance: 0.7,         // Default: 0.5
-  tags: ["networking"],    // Default: []
-  sourceType: "interaction", // Default: "user"
-  sourceId: "event-123",   // Optional
-
-  // Deduplication control
-  deduplicate: true,       // Default: true
-});
-```
-
-### Store Options Type
-
-```typescript
-interface StoreMemoryOptions {
-  content: string;
-  type?: MemoryType;
-  scope?: MemoryScope;
-  importance?: number;
-  tags?: string[];
-  sourceType?: string;
-  sourceId?: string;
-  deduplicate?: boolean;
-}
 ```
 
 ## Retrieving Memories
 
-### Get with Filters
-
 ```typescript
+// With filters
 const memories = await memoryStore.get({
-  limit: 10,
   type: "semantic",
   scope: "long_term",
+  limit: 10,
   minImportance: 0.5,
 });
+
+// By ID
+const memory = await memoryStore.getById("memory_id");
 ```
 
-### Get Options Type
+## Searching
 
 ```typescript
-interface GetMemoriesOptions {
-  limit?: number;
-  type?: MemoryType;
-  scope?: MemoryScope;
-  minImportance?: number;
-}
-```
-
-### Search by Text
-
-```typescript
-const memories = await memoryStore.search({
-  query: "ethereum market",
+const results = await memoryStore.search({
+  query: "vector databases",
+  type: "semantic",          // Optional filter
   limit: 10,
+  threshold: 0.6,            // Min similarity
 });
 ```
 
-If the backend supports vector search, semantic similarity is used. Otherwise, falls back to text matching.
-
-### Search Options Type
+## Updating and Deleting
 
 ```typescript
-interface SearchMemoriesOptions {
-  query: string;
-  limit?: number;
-  type?: MemoryType;
-  threshold?: number;
-}
-```
-
-### Get by ID
-
-```typescript
-const memory = await memoryStore.getById("memory_id_here");
-
-if (memory) {
-  console.log(memory.content);
-}
-```
-
-## Updating Memories
-
-```typescript
-const updated = await memoryStore.update("memory_id", {
+await memoryStore.update("memory_id", {
   importance: 0.9,
-  tags: ["important", "verified"],
+  tags: ["important"],
 });
-```
 
-<Note>
-Update support depends on the backend. The Convex backend requires the `updateMemory` method to be implemented.
-</Note>
-
-## Deleting Memories
-
-```typescript
 await memoryStore.delete("memory_id");
 ```
-
-<Note>
-Delete support depends on the backend. The Convex backend requires the `deleteMemory` method to be implemented.
-</Note>
 
 ## Statistics
 
 ```typescript
 const stats = await memoryStore.getStats();
-
-console.log("Total memories:", stats.total);
-console.log("By type:", stats.byType);
-console.log("By scope:", stats.byScope);
-console.log("Avg importance:", stats.averageImportance);
+// { total, byType, byScope, averageImportance }
 ```
 
-### Stats Type
+## Deduplication Utilities
+
+**Reference:** `src/memory/deduplication.ts`
 
 ```typescript
-interface MemoryStats {
-  total: number;
-  byType: Record<MemoryType, number>;
-  byScope: Record<MemoryScope, number>;
-  averageImportance: number;
-}
-```
+import { checkDuplication, findSimilarMemories, DEDUP_THRESHOLDS } from "./src/memory/deduplication";
 
-## Types
-
-### Memory
-
-```typescript
-interface Memory {
-  id?: string;
-  content: string;
-  type: MemoryType;
-  scope: MemoryScope;
-  importance: number;     // 0-1
-  salience: number;       // 0-1, how attention-grabbing
-  valence: number;        // -1 to 1, emotional tone
-  confidence: number;     // 0-1, reliability
-  tags: string[];
-  sourceType: string;
-  sourceId?: string;
-  createdAt: string;
-  accessedAt?: string;
-  accessCount: number;
-  unique: boolean;        // Passed deduplication check
-}
-```
-
-### MemoryType
-
-```typescript
-type MemoryType =
-  | "episodic"    // Specific events and experiences
-  | "semantic"    // Facts and concepts
-  | "emotional"   // Feelings about topics
-  | "procedural"  // Learned patterns
-  | "reflection"; // Self-reflective insights
-```
-
-### MemoryScope
-
-```typescript
-type MemoryScope =
-  | "short_term"  // Recent, may decay
-  | "working"     // Active processing
-  | "long_term";  // Permanent storage
-```
-
-## Deduplication
-
-The SDK includes type-specific deduplication thresholds:
-
-| Type | Threshold | Rationale |
-|------|-----------|-----------|
-| episodic | 0.92 | Events can be similar but distinct |
-| semantic | 0.95 | Facts need high similarity to merge |
-| emotional | 0.88 | Feelings about same topic merge easily |
-| procedural | 0.97 | Patterns need near-exact match |
-| reflection | 0.90 | Self-insights should be unique |
-
-### Deduplication Utilities
-
-```typescript
-import {
-  checkDuplication,
-  findSimilarMemories,
-  calculateSalience,
-  calculateConfidence,
-  DEDUP_THRESHOLDS
-} from "./src/memory/deduplication";
-
-// Check if a memory is duplicate
+// Check if duplicate
 const result = checkDuplication(newMemory, existingMemories);
+// { isUnique, reason, matchedMemoryId, similarity }
 
-if (!result.isUnique) {
-  console.log("Duplicate found:", result.reason);
-  console.log("Matched:", result.matchedMemoryId);
-  console.log("Similarity:", result.similarity);
-}
+// Find similar without strict dedup
+const similar = findSimilarMemories(memory, allMemories, { limit: 5, minSimilarity: 0.6 });
+```
 
-// Find similar memories without strict dedup
-const similar = findSimilarMemories(memory, existingMemories, {
-  limit: 5,
-  minSimilarity: 0.5,
-});
+### Default Thresholds
 
-// Calculate salience (how attention-grabbing)
-const salience = calculateSalience("Breaking: Major market shift!");
+| Type | Threshold |
+|------|-----------|
+| episodic | 0.92 |
+| semantic | 0.95 |
+| emotional | 0.88 |
+| procedural | 0.97 |
+| reflection | 0.90 |
 
-// Calculate confidence (how reliable)
-const confidence = calculateConfidence("ETH price is $2000", "api");
+## Salience and Confidence
+
+```typescript
+import { calculateSalience, calculateConfidence } from "./src/memory/deduplication";
+
+const salience = calculateSalience("Breaking news!");  // 0-1
+const confidence = calculateConfidence("Data", "api"); // 0-1
 ```
 
 ## Embeddings
 
-For embedding operations, use the LLM module directly:
+**Reference:** `src/llm/embeddings.ts`
 
 ```typescript
-import {
-  createEmbeddingClient,
-  embeddingConfigFromEnv,
-  cosineSimilarity
-} from "./src/llm";
+import { createEmbeddingClient, cosineSimilarity } from "./src/llm";
 
-const embedder = createEmbeddingClient(embeddingConfigFromEnv());
-
-// Generate embedding
+const embedder = createEmbeddingClient(config);
 const result = await embedder.embed("Hello world");
-console.log(result.embedding.length); // 768 for Gemini
 
-// Compare embeddings
 const similarity = cosineSimilarity(embedding1, embedding2);
 ```
 
 ## Backend Support
 
-Different backends may support different features:
-
 | Method | Convex | In-Memory |
 |--------|--------|-----------|
 | `store()` | Yes | Yes |
 | `get()` | Yes | Yes |
-| `search()` | Yes (vector) | Yes (text) |
-| `getById()` | Yes | Yes |
+| `search()` | Vector | Text |
 | `update()` | Optional | Yes |
 | `delete()` | Optional | Yes |
-| `getStats()` | Yes | Yes |
-
-## Advanced Features (CLARK Backend)
-
-The CLARK demonstration backend includes additional features not in the base SDK:
-
-- Memory linking with 7 relationship types
-- Memory consolidation into core memories
-- Self-reflection generation
-- Sliding window deduplication
-- Quality scoring
-
-See the [Memory Management Guide](/guides/memory-management) for advanced patterns.
 
 ## Next Steps
 
 <CardGroup cols={2}>
-  <Card title="Agent SDK" icon="robot" href="/api-reference/sdk/agent">
+  <Card title="Agent SDK" href="/api-reference/sdk/agent">
     Main agent class reference.
   </Card>
-  <Card title="Memory Guide" icon="book" href="/guides/memory-management">
-    Best practices for memory management.
+  <Card title="Memory Guide" href="/guides/memory-management">
+    Advanced memory patterns.
   </Card>
 </CardGroup>

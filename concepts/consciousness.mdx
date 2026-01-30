@@ -5,233 +5,116 @@ description: "Higher-order thought synthesis and moments of brilliance"
 
 ## Overview
 
-The consciousness layer transforms raw data and memories into coherent, high-level thoughts. While memories store information, consciousness synthesizes meaning.
-
-```
-Raw Data → Filtering → Pattern Detection → Synthesis → Conscious Thought
-```
+The consciousness layer transforms raw inputs into coherent, high-level thoughts. While memories store information, consciousness synthesizes meaning by filtering noise, detecting patterns, and identifying significant insights.
 
 ## How It Works
 
-### Input Filtering
-
-Not all data deserves conscious attention. The consciousness layer filters:
-
-- Low-importance signals (threshold: 0.3)
-- Spam and noise (repetitive content)
-- Meaningless polls (e.g., "Will BTC go up today?")
-
-```typescript
-const LOW_VALUE_PATTERNS = [
-  /Bitcoin Up or Down/i,
-  /Up or Down.*\d+:\d+\s*(?:AM|PM)/i,
-  /Up 50% \/ Down 50%/i,  // No signal
-  /liq \$[0-9]\.?\d*K?\s*$/i,  // Low liquidity
-];
+```
+Raw Inputs → Filtering → Pattern Detection → Synthesis → Conscious Thought
 ```
 
-### Pattern Detection
+1. **Input Filtering** — Low-value signals are discarded
+2. **Entity Extraction** — Key topics and names are identified
+3. **Pattern Detection** — Common entities across inputs are found
+4. **Synthesis** — Multiple signals merge into a coherent thought
+5. **Brilliance Check** — Exceptional insights are flagged
 
-The layer identifies connections between inputs:
+## Input Filtering
 
-```typescript
-interface ThoughtSeed {
-  type: "market" | "news" | "prediction" | "personal" | "meta";
-  content: string;
-  sentiment: number;
-  importance: number;
-  entities: string[];
-  timestamp: number;
-}
+Not everything deserves attention. The consciousness layer filters:
 
-// Find common entities across seeds
-const entityCounts = new Map<string, number>();
-for (const seed of seeds) {
-  for (const entity of seed.entities) {
-    entityCounts.set(entity, (entityCounts.get(entity) || 0) + 1);
-  }
-}
-```
+- Low-importance signals (below 0.3 threshold)
+- Spam and repetitive content
+- Generic polls with no signal (e.g., "50/50 up or down")
 
-### Thought Synthesis
+This prevents noise from cluttering the agent's thinking.
 
-When patterns emerge, a conscious thought forms:
+**Reference:** Filtering patterns defined in consciousness processing functions
 
-```typescript
-interface SynthesizedThought {
-  thought: string;
-  confidence: number;
-  relatedSeeds: string[];
-  emotionalTone: "curious" | "excited" | "concerned" | "neutral" | "reflective";
-  isBrilliant: boolean;
-}
-```
+## Pattern Detection
+
+The layer identifies connections by extracting entities from each input and finding overlaps:
+
+| Input Source | Entities Found |
+|--------------|----------------|
+| News article | "AI", "agents", "tech" |
+| Market data | "AI", "investment" |
+| **Common** | **"AI"** — pattern detected |
+
+When multiple high-value inputs share entities, this signals something meaningful.
 
 ## Moments of Brilliance
 
 The most powerful feature: detecting when patterns align into significant insights.
 
-A thought becomes "brilliant" when:
-1. Multiple high-importance seeds (≥2 with importance >0.7)
-2. Common entities across seeds
-3. Novel combination (not recently mentioned)
-4. Crosses information boundaries
+A thought becomes **brilliant** when:
+- Multiple high-importance inputs (≥2 with importance >0.7)
+- Common entities across those inputs
+- Novel combination not recently mentioned
 
-```typescript
-const isBrilliant =
-  valuableSeeds.filter(s => s.importance > 0.7).length >= 2 &&
-  commonEntities.length > 0 &&
-  !recentThoughts.some(t =>
-    commonEntities.some(e => t.toLowerCase().includes(e.toLowerCase()))
-  );
-```
-
-### Example
-
-```typescript
-// Seeds from different sources converging:
-const seed1 = {
-  type: "news",
-  content: "Major tech company announces AI agent framework",
-  importance: 0.85,
-  entities: ["AI", "agents", "tech"]
-};
-
-const seed2 = {
-  type: "market",
-  content: "Investment in AI infrastructure up 40%",
-  importance: 0.82,
-  entities: ["AI", "investment"]
-};
-
-// Consciousness detects:
-// - Common entity: "AI"
-// - Both high importance
-// - Convergent trend
-
-// Output: Moment of Brilliance
-{
-  thought: "Observing a fundamental shift toward AI agents. Developer interest and investment are converging.",
-  emotionalTone: "excited",
-  confidence: 0.89,
-  isBrilliant: true
-}
-```
+Brilliant thoughts are flagged for special handling—they might trigger posts, notifications, or elevated memory storage.
 
 ## Emotional Tones
 
-The emotional quality of thoughts guides agent behavior:
+Each synthesized thought carries an emotional tone based on content sentiment:
 
-| Tone | Trigger | Typical Action |
+| Tone | Trigger | Agent Behavior |
 |------|---------|----------------|
 | `curious` | New territory | Research, explore |
-| `excited` | Positive pattern | Share, engage |
-| `concerned` | Risk detection | Warn, analyze |
+| `excited` | Positive convergence | Share, engage |
+| `concerned` | Risk detected | Warn, analyze |
 | `neutral` | Factual observation | Document |
 | `reflective` | Self-related insight | Learn, adapt |
 
-## Integration with Tick
+## Integration with Ticks
 
-Consciousness processing runs during each tick:
+Consciousness processing runs during each tick cycle:
 
 ```typescript
-const result = await processConsciousness({
-  mood: currentState.mood,
-  routine: currentState.routine
+// In tick execution
+const thought = await processConsciousness({
+  inputs: knowledgeItems,
+  state: currentState,
 });
 
-if (result.thoughtGenerated) {
-  console.log("Thought:", result.thought.thought);
-
-  if (result.thought.isBrilliant) {
-    // Handle moment of brilliance
-    await notifyImportantInsight(result.thought);
-  }
+if (thought?.isBrilliant) {
+  // Handle significant insight
+  await notifyImportantInsight(thought);
 }
 ```
 
-## REST API
-
-```bash
-# Get recent conscious thoughts
-GET /consciousness/thoughts?limit=10
-
-# Get brilliant thoughts only
-GET /consciousness/brilliant?limit=5
-
-# Trigger thought generation
-POST /consciousness/process
-{
-  "mood": "expressive",
-  "routine": "morning"
-}
-```
-
-## Polymarket Filtering
-
-Built-in intelligence for filtering prediction market noise:
-
-```typescript
-function isPolymarketWorthRemarkingOn(content: string): {
-  worthy: boolean;
-  reason: string;
-  remarkType: "insight" | "analysis" | "dismiss" | null;
-}
-
-// High-value patterns (worth remarking):
-// - Strong conviction (>70% one way)
-// - High liquidity (>$100k)
-// - Named events (elections, fed decisions)
-// - Price milestones
-
-// Low-value patterns (filtered out):
-// - Generic daily up/down polls
-// - Near 50/50 splits (no signal)
-// - Low liquidity markets
-```
+**Reference:** Consciousness integrates with `executeTick()` in `src/core/tick.ts`
 
 ## Storing Thoughts
 
-Conscious thoughts are stored as reflection-type memories:
-
-```typescript
-await storeThought({
-  thought: synthesized.thought,
-  confidence: synthesized.confidence,
-  emotionalTone: synthesized.emotionalTone,
-  isBrilliant: synthesized.isBrilliant,
-  relatedMemoryIds: [...],
-  mood: currentMood,
-  routine: currentRoutine
-});
-```
-
-This creates a memory with:
-- Type: `reflection`
-- Tags: `consciousness`, `thought`, emotional tone
+Conscious thoughts are stored as **reflection-type memories** with:
 - High salience for brilliant insights
-- Links to contributing memories
+- Links to contributing input memories
+- Emotional tone tags
+
+This creates a record of the agent's thinking process over time.
 
 ## SDK Status
 
-Current SDK implementation:
-- Basic tick context with state and memories
-- Plugin onTick hooks
+**Currently implemented:**
+- Tick context with state and memories passed to plugins
+- Plugin `onTick` hooks for custom processing
 
-Expanding to include:
+**Roadmap:**
 - Full consciousness synthesis engine
-- Polymarket and noise filtering
-- Thought storage as reflection memories
+- Noise filtering utilities
 - Brilliance detection
 - Emotional tone classification
+
+**Reference:** Plugin context in `src/plugins/types.ts`
 
 ## Next Steps
 
 <CardGroup cols={2}>
-  <Card title="Tick System" icon="clock" href="/concepts/tick-system">
+  <Card title="Tick System" href="/concepts/tick-system">
     How consciousness integrates with execution.
   </Card>
-  <Card title="Memory System" icon="brain" href="/concepts/memory">
+  <Card title="Memory System" href="/concepts/memory">
     How thoughts become memories.
   </Card>
 </CardGroup>

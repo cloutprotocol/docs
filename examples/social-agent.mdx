@@ -3,205 +3,146 @@ title: "Social Agent"
 description: "An agent that engages across social platforms"
 ---
 
-This example shows how to build a social media agent that:
-- Posts content based on agent mood
+## Overview
+
+This example shows how to build a social agent that posts content based on mood and implements cooldown timers. It demonstrates mood-gated behavior and plugin patterns for social integrations.
+
+## What It Does
+
+- Posts content only when agent is expressive and healthy
 - Implements cooldown timers between posts
-- Responds to mentions when in certain moods
+- Logs activity for monitoring
+- Supports multiple platforms via configuration
 
 ## Architecture
 
-```mermaid
-graph TD
-    A[Tick] --> B{Mood Check}
-    B -->|Expressive| C[Post Content]
-    B -->|Other| D[Monitor Only]
-    C --> E[Twitter]
-    C --> F[Discord]
 ```
+Tick ──► Mood Check ──► Expressive? ──► Cooldown Check ──► Post
+                  │
+                  └──► Other moods ──► Monitor only
+```
+
+The key insight: agents don't always need to post. They wait for the right conditions.
 
 ## Social Plugin
 
-```typescript
-// plugins/social.ts
-import type { Plugin, TickContext } from "./src";
-import type { Agent } from "./src";
+A plugin that manages posting with cooldowns:
 
-interface SocialConfig {
+**Key features:**
+- Configurable cooldown period
+- Mood and health gating
+- Multi-platform support
+- Actions: `post(content, platform)`, `getStatus()`
+
+```typescript
+export function createSocialPlugin(config: {
   postCooldownMinutes: number;
   platforms: string[];
-}
-
-export function createSocialPlugin(config: SocialConfig): Plugin {
+}): Plugin {
   let lastPostTime = 0;
 
-  const canPost = (): boolean => {
-    return Date.now() - lastPostTime > config.postCooldownMinutes * 60 * 1000;
-  };
+  const canPost = () => Date.now() - lastPostTime > config.postCooldownMinutes * 60 * 1000;
 
   return {
     name: "social",
     version: "1.0.0",
 
-    init(agent: Agent) {
-      console.log(`Social plugin initialized for platforms: ${config.platforms.join(", ")}`);
-    },
-
-    onTick(context: TickContext) {
-      // Only post when expressive and healthy
-      if (context.state.mood === "expressive" && context.state.health > 50) {
-        if (canPost()) {
-          console.log("Agent is expressive - ready to post content");
-          // In a real implementation, you would call your posting logic here
-        } else {
-          console.log("Post cooldown active");
-        }
+    onTick(context) {
+      // Only post when conditions are right
+      if (context.state.mood === "expressive" && context.state.health > 50 && canPost()) {
+        console.log("Ready to post");
       }
-
-      // Log current mood for monitoring
-      console.log(`Social plugin tick - Mood: ${context.state.mood}`);
     },
 
     actions: {
-      async post(params: { content: string; platform: string }, agent: Agent) {
-        if (!canPost()) {
-          return { success: false, error: "Cooldown active" };
-        }
-
-        // Validate platform
-        if (!config.platforms.includes(params.platform)) {
-          return { success: false, error: "Platform not configured" };
-        }
-
-        // Your posting logic here (Twitter API, Discord bot, etc.)
-        console.log(`Posting to ${params.platform}: ${params.content}`);
-
-        lastPostTime = Date.now();
-        return { success: true, platform: params.platform };
-      },
-
-      async getStatus() {
-        return {
-          success: true,
-          data: {
-            lastPostTime,
-            cooldownRemaining: Math.max(0,
-              config.postCooldownMinutes * 60 * 1000 - (Date.now() - lastPostTime)
-            ),
-            canPost: canPost(),
-          }
-        };
-      },
-    },
+      async post(params) { /* ... */ },
+      async getStatus() { /* ... */ }
+    }
   };
 }
 ```
 
+**Reference:** See `plugins/social.ts` pattern in the repository.
+
 ## Logger Plugin
 
-A simple plugin to track agent activity:
+A simple companion plugin for monitoring:
 
 ```typescript
-// plugins/logger.ts
-import type { Plugin, TickContext } from "./src";
-
 export const loggerPlugin: Plugin = {
   name: "logger",
   version: "1.0.0",
 
-  onTick(context: TickContext) {
-    const { state, memories, recentLogs } = context;
-
-    console.log(`--- Tick Summary ---`);
-    console.log(`Mood: ${state.mood}`);
-    console.log(`Health: ${state.health}`);
-    console.log(`Routine: ${state.routine}`);
-    console.log(`Memories loaded: ${memories.length}`);
-    console.log(`Recent logs: ${recentLogs.length}`);
+  onTick(context) {
+    console.log(`Mood: ${context.state.mood}, Health: ${context.state.health}`);
+    console.log(`Memories: ${context.memories.length}`);
   }
 };
 ```
 
-## Complete Setup
+## Agent Setup
 
 ```typescript
-// agent.ts
-import { Agent } from "./src";
-import { ConvexBackend } from "./src/backend";
-import { createSocialPlugin } from "./plugins/social";
-import { loggerPlugin } from "./plugins/logger";
-
-const backend = new ConvexBackend({
-  url: process.env.CONVEX_URL!,
-});
-
-export const socialAgent = new Agent({
-  backend,
+const agent = new Agent({
+  backend: new ConvexBackend({ url: process.env.CONVEX_URL }),
   plugins: [
     loggerPlugin,
-
     createSocialPlugin({
       postCooldownMinutes: 60,  // 1 hour between posts
       platforms: ["twitter", "discord"],
     }),
   ],
 });
-
-// Execute a single tick
-await socialAgent.tick();
-
-// Or start automatic tick execution
-socialAgent.start();
-
-// Execute a plugin action
-await socialAgent.executeAction("social", "post", {
-  content: "Hello from ClarkOS!",
-  platform: "twitter"
-});
-
-// Get plugin status
-const status = await socialAgent.executeAction("social", "getStatus", {});
-console.log(status);
 ```
 
-## Running the Agent
+## Mood-Based Posting
+
+The agent only posts when:
+1. **Mood is expressive** — Agent has something to share
+2. **Health is above 50** — Agent has capacity
+3. **Cooldown has elapsed** — Prevents spam
+
+This creates natural, periodic engagement rather than constant output.
+
+## Rate Limits
+
+Respect platform limits in your implementation:
+
+| Platform | Limit |
+|----------|-------|
+| Twitter | ~300 tweets per 3 hours |
+| Discord | 5 messages per 5 seconds per channel |
+
+Build in cooldowns that exceed these limits to stay safe.
+
+## Running
 
 ```bash
-# Start the agent
 npm run dev
 
-# The agent will tick automatically based on your configuration
-# Check the console for social plugin activity logs
+# Check social plugin status
+curl http://localhost:3001/actions/social/getStatus
+
+# Manual post (for testing)
+curl -X POST http://localhost:3001/actions/social/post \
+  -H "Authorization: Bearer $TOKEN" \
+  -d '{"content": "Hello world", "platform": "twitter"}'
 ```
 
 ## Best Practices
 
-<AccordionGroup>
-  <Accordion title="Respect rate limits">
-    - Twitter: Max 300 tweets/3 hours
-    - Discord: Max 5 messages/5 seconds per channel
-    - Build in cooldowns between posts
-  </Accordion>
-
-  <Accordion title="Use mood-based posting">
-    - Only post when mood is "expressive"
-    - Reduce activity when health is low
-    - Quality over quantity
-  </Accordion>
-
-  <Accordion title="Log everything">
-    - Track all posts and their outcomes
-    - Monitor cooldown timers
-    - Use the logger plugin during development
-  </Accordion>
-</AccordionGroup>
+- **Quality over quantity** — Let mood naturally gate output
+- **Respect rate limits** — Build in generous cooldowns
+- **Log everything** — Track all posts for debugging
+- **Start conservative** — Begin with longer cooldowns, reduce as needed
 
 ## Next Steps
 
 <CardGroup cols={2}>
-  <Card title="Basic Agent" icon="robot" href="/examples/basic-agent">
-    Review the basics.
+  <Card title="Basic Agent" href="/examples/basic-agent">
+    Review the fundamentals.
   </Card>
-  <Card title="Plugin Development" icon="plug" href="/guides/custom-plugins">
-    Build custom integrations.
+  <Card title="Custom Plugins" href="/guides/custom-plugins">
+    Build your own integrations.
   </Card>
 </CardGroup>

@@ -3,296 +3,133 @@ title: "Agent SDK"
 description: "TypeScript SDK for building ClarkOS agents"
 ---
 
-The ClarkOS SDK is included in the template repository under `/src`. It provides the main `Agent` class for building autonomous agents.
+## Overview
 
-## Setup
+The `Agent` class is the main entry point for building ClarkOS agents. It wraps the tick system, plugin management, and backend access.
 
-The SDK is included when you clone the template:
+**Reference:** `src/core/agent.ts`
 
-```bash
-git clone https://github.com/clarkos/clarkos my-agent
-cd my-agent
-npm install
-```
-
-## Agent Class
-
-### Constructor
+## Creating an Agent
 
 ```typescript
 import { Agent } from "./src";
 import { ConvexBackend } from "./src/backend";
 
 const agent = new Agent({
-  backend: new ConvexBackend({
-    url: process.env.CONVEX_URL!
-  }),
+  backend: new ConvexBackend({ url: process.env.CONVEX_URL }),
   plugins: []
 });
 ```
 
-### Options
+## Constructor Options
+
+| Option | Type | Description |
+|--------|------|-------------|
+| `backend` | Backend | Required. Convex or in-memory backend |
+| `config` | AgentConfig | Optional. Override defaults |
+| `plugins` | Plugin[] | Optional. Plugins to register |
+
+## Configuration
+
+| Option | Default | Description |
+|--------|---------|-------------|
+| `name` | "Agent" | Agent identifier |
+| `tick.interval` | 60000 | Milliseconds between ticks |
+| `tick.auto` | false | Start ticking automatically |
+| `tick.maxRetries` | 3 | Retry attempts on failure |
+| `memory.maxShortTerm` | 50 | Short-term memory limit |
+| `verbose` | false | Enable debug logging |
+
+**Reference:** Full schema in `src/core/config.ts`
+
+## Lifecycle Methods
 
 ```typescript
-interface AgentOptions {
-  backend: Backend;
-  config?: Partial<AgentConfig>;
-  plugins?: Plugin[];
-}
-
-interface AgentConfig {
-  name: string;              // Default: "Agent"
-  backend: {
-    type: "convex" | "memory";
-    url?: string;
-    tickToken?: string;
-    writeToken?: string;
-  };
-  tick: {
-    interval: number;        // Default: 60000 (1 min)
-    auto: boolean;           // Default: false
-    maxRetries: number;      // Default: 3
-  };
-  memory: {
-    consolidationThreshold: number;  // Default: 100
-    decayRate: number;               // Default: 0.1
-    maxShortTerm: number;            // Default: 50
-  };
-  verbose: boolean;          // Default: false
-}
+agent.start();          // Begin continuous tick execution
+agent.stop();           // Stop execution
+await agent.tick();     // Execute single tick
+await agent.getState(); // Get current state
+agent.isRunning();      // Check execution status
 ```
 
-## Methods
-
-### Lifecycle
+## Plugin Methods
 
 ```typescript
-// Start automatic tick execution
-agent.start();
-
-// Stop automatic tick execution
-agent.stop();
-
-// Check if running
-const isRunning = agent.isRunning();
+agent.use(plugin);                              // Register plugin
+agent.getPlugin("name");                        // Get by name
+agent.getPlugins();                             // List all
+await agent.executeAction("plugin", "action", params); // Call action
 ```
 
-### Tick Execution
+## Memory Access
 
 ```typescript
-// Execute a single tick
-const result = await agent.tick();
-
-// Result structure
-interface TickResult {
-  success: boolean;
-  state: AgentState;
-  summary?: string;
-  detail?: string;
-  artifacts?: unknown[];
-  error?: string;
-}
-```
-
-### State Management
-
-```typescript
-// Get current state
-const state = await agent.getState();
-
-// State structure
-interface AgentState {
-  mood: Mood;
-  health: number;
-  routine: Routine;
-  volatility: number;
-  counters: { ticks: number; feeds: number };
-  lastTick: string | null;
-  cryo: boolean;
-}
-```
-
-### Plugin Management
-
-```typescript
-// Register a plugin
-agent.use(myPlugin);
-
-// Get a plugin by name
-const plugin = agent.getPlugin("analytics");
-
-// Get all plugins
-const plugins = agent.getPlugins();
-
-// Execute a plugin action
-const result = await agent.executeAction("pluginName", "actionName", {
-  param: "value"
-});
-```
-
-### Memory Access
-
-```typescript
-// Access the memory store
 const memoryStore = agent.memory;
 
-// Store a memory
-await memoryStore.store({
-  type: "episodic",
-  content: "Event description",
-  scope: "short_term",
-  importance: 0.7,
-  salience: 0.5,
-  valence: 0,
-  confidence: 0.8,
-  tags: ["event"],
-  sourceType: "tick"
-});
-
-// Get memories with filters
-const memories = await memoryStore.get({
-  type: "semantic",
-  limit: 10
-});
+await memoryStore.store({ content: "...", type: "semantic" });
+const memories = await memoryStore.get({ type: "episodic", limit: 10 });
+const results = await memoryStore.search({ query: "...", limit: 5 });
 ```
 
-### Knowledge Access
+**Reference:** Full interface in `src/memory/store.ts`
+
+## Knowledge Access
 
 ```typescript
-// Access the knowledge store
 const knowledgeStore = agent.knowledge;
 
-// Add knowledge
-await knowledgeStore.add({
-  text: "Article content...",
-  type: "news",
-  source: "coindesk"
-});
-
-// Get knowledge with filters
-const items = await knowledgeStore.get({
-  limit: 20
-});
-
-// Search knowledge
-const results = await knowledgeStore.search({
-  query: "ethereum",
-  limit: 10
-});
+await knowledgeStore.add({ text: "...", type: "news", source: "..." });
+const items = await knowledgeStore.get({ limit: 20 });
+const results = await knowledgeStore.search({ query: "...", limit: 10 });
 ```
 
 ## Types
 
-### Mood
+### AgentState
 
-```typescript
-type Mood =
-  | "neutral"
-  | "expressive"
-  | "curious"
-  | "excited"
-  | "reflective"
-  | "concerned";
-```
-
-### Routine
-
-```typescript
-type Routine =
-  | "morning"    // 6am - 12pm
-  | "day"        // 12pm - 6pm
-  | "evening"    // 6pm - 12am
-  | "overnight"; // 12am - 6am
-```
+| Field | Type | Description |
+|-------|------|-------------|
+| `mood` | Mood | neutral, expressive, curious, excited, reflective, concerned |
+| `health` | number | 0-100 |
+| `routine` | Routine | morning, day, evening, overnight |
+| `volatility` | number | 0-1 |
+| `counters` | object | { ticks, feeds } |
+| `lastTick` | string | ISO timestamp |
+| `cryo` | boolean | Hibernation mode |
 
 ### MemoryType
 
-```typescript
-type MemoryType =
-  | "episodic"    // Specific events and experiences
-  | "semantic"    // Facts and concepts
-  | "emotional"   // Feelings about topics
-  | "procedural"  // Learned patterns
-  | "reflection"; // Self-reflective insights
-```
+`episodic` | `semantic` | `emotional` | `procedural` | `reflection`
 
 ### MemoryScope
 
-```typescript
-type MemoryScope =
-  | "short_term"  // Recent, may decay
-  | "working"     // Active processing
-  | "long_term";  // Permanent storage
-```
+`short_term` | `working` | `long_term`
 
-## Example Usage
+## Example
 
 ```typescript
-import { Agent } from "./src";
-import { ConvexBackend } from "./src/backend";
-
-// Create backend
-const backend = new ConvexBackend({
-  url: process.env.CONVEX_URL!
-});
-
-// Create agent with plugin
 const agent = new Agent({
-  backend,
-  plugins: [
-    {
-      name: "logger",
-      version: "1.0.0",
-      onTick(context) {
-        console.log(`Tick: mood=${context.state.mood}, health=${context.state.health}`);
-      }
+  backend: new ConvexBackend({ url: process.env.CONVEX_URL }),
+  plugins: [{
+    name: "logger",
+    version: "1.0.0",
+    onTick(context) {
+      console.log(`Tick: ${context.state.mood}`);
     }
-  ]
+  }]
 });
 
-// Run a tick
 const result = await agent.tick();
-console.log("Tick result:", result);
-
-// Get state
 const state = await agent.getState();
-console.log("Current state:", state);
-
-// Start automatic execution
-agent.start();
-
-// Later: stop
-agent.stop();
 ```
-
-## SDK Roadmap
-
-Current implementation:
-- Agent class with tick/start/stop/isRunning
-- Plugin registration with lifecycle hooks (init, cleanup, onTick)
-- Plugin actions with executeAction()
-- Memory store with get/store/search/update/delete/getStats
-- Knowledge store with add/get/search/getById/getStats
-- Convex and in-memory backend support
-- Zod-validated configuration
-- LLM client (OpenRouter, OpenAI, Anthropic, custom)
-- Embedding generation (Gemini, OpenAI)
-- Type-specific memory deduplication
-
-Expanding to include:
-- Memory linking and relationship tracking
-- Memory consolidation into core memories
-- Self-reflection generation
-- Event emitter for state changes
-- Consciousness processing integration
 
 ## Next Steps
 
 <CardGroup cols={2}>
   <Card title="Memory Store" href="/api-reference/sdk/memory-store">
-    Memory system reference
+    Memory system reference.
   </Card>
   <Card title="Plugins SDK" href="/api-reference/sdk/plugins">
-    Plugin development reference
+    Plugin development reference.
   </Card>
 </CardGroup>

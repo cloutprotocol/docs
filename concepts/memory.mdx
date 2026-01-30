@@ -5,227 +5,135 @@ description: "Multi-layered cognitive memory inspired by human psychology"
 
 ## Overview
 
-ClarkOS implements a cognitive psychology-inspired memory architecture that goes beyond simple storage. The system features multiple memory types, vector embeddings for semantic search, automatic deduplication, memory consolidation, bidirectional linking, and self-reflection capabilities.
+ClarkOS implements a cognitive memory system with five distinct types, vector embeddings for semantic search, and type-specific deduplication. This goes beyond simple conversation history to model how agents learn and remember.
 
 ## Memory Types
 
-ClarkOS supports five distinct memory types:
+| Type | Purpose | Example | Dedup Threshold |
+|------|---------|---------|-----------------|
+| **Episodic** | Specific events | "Read article about AI agents" | 0.92 |
+| **Semantic** | Facts and concepts | "Convex is serverless" | 0.95 |
+| **Emotional** | Feelings about topics | "Excited about this project" | 0.88 |
+| **Procedural** | Learned patterns | "Morning news is often noisy" | 0.97 |
+| **Reflection** | Self-insights | "I'm more analytical at night" | 0.90 |
 
-| Type | Purpose | Example |
-|------|---------|---------|
-| **Episodic** | Specific events and experiences | "Met Alice at the hackathon" |
-| **Semantic** | Facts and concepts | "Ethereum uses proof-of-stake" |
-| **Emotional** | Feelings about topics | "Excited about AI agents" |
-| **Procedural** | Learned patterns and behaviors | "When market drops, users want reassurance" |
-| **Reflection** | Self-reflective insights | "I notice I'm more creative in the evening" |
+The **reflection** type enables metacognitive capabilities—agents can reason about their own patterns.
 
-The reflection type is unique to ClarkOS and enables metacognitive capabilities.
+**Reference:** Types defined in `src/types.ts`, thresholds in `src/memory/deduplication.ts`
 
 ## Memory Structure
 
-Every memory contains rich metadata:
+Each memory includes rich metadata:
 
-```typescript
-interface Memory {
-  id?: string;
-  ts: string;
-  content: string;
-  type: MemoryType;
-  scope: "short_term" | "working" | "long_term";
+| Field | Description |
+|-------|-------------|
+| `content` | The actual memory text |
+| `type` | One of the 5 memory types |
+| `scope` | short_term, working, or long_term |
+| `importance` | 0-1, how significant |
+| `salience` | 0-1, how attention-grabbing |
+| `confidence` | 0-1, how reliable |
+| `valence` | -1 to 1, emotional charge |
+| `tags` | Categorization labels |
+| `embedding` | Vector for semantic search |
 
-  // Vector embedding for semantic search
-  embedding?: number[];
-  embeddingModel?: string;
-
-  // Emotional metadata
-  sentiment: number;           // -1 to 1
-  valence: "positive" | "negative" | "neutral" | "mixed";
-  emotionalIntensity: number;  // 0 to 1
-
-  // Importance and access tracking
-  importance: number;          // 0 to 1, decays over time
-  accessCount: number;         // Strengthens with use
-  lastAccessedAt: number;
-
-  // Associations
-  tags: string[];
-  linkedMemoryIds: string[];
-  sourceType: string;          // "news", "market", "user", "self"
-  sourceId?: string;
-
-  // Consolidation tracking
-  isConsolidated: boolean;
-  consolidatedIntoId?: string;
-
-  // Enhanced fields
-  unique?: boolean;            // Passed deduplication check
-  salience?: number;           // How attention-grabbing (0-1)
-  confidence?: number;         // How reliable (0-1)
-  version?: number;            // Update tracking
-
-  // Rich context
-  metadata?: {
-    context?: string;
-    mood?: string;
-    routine?: string;
-    triggerMemoryId?: string;
-    relatedEntities?: string[];
-  };
-}
-```
+**Reference:** Full interface in `src/types.ts`
 
 ## Deduplication
 
-ClarkOS uses type-specific similarity thresholds for deduplication:
+ClarkOS uses a **3-tier deduplication strategy** to prevent redundant memories:
 
-| Type | Threshold | Rationale |
-|------|-----------|-----------|
-| Episodic | 0.92 | Events can be similar but distinct |
-| Semantic | 0.95 | Facts need high similarity to be duplicates |
-| Emotional | 0.88 | Feelings about same topic merge |
-| Procedural | 0.97 | Patterns need near-exact match |
-| Reflection | 0.90 | Self-insights should be quite unique |
+1. **Exact match** — Identical content is rejected
+2. **Jaccard similarity** — Word overlap >0.85 is rejected
+3. **Embedding similarity** — Type-specific thresholds (see table above)
+
+Lower thresholds (emotional: 0.88) allow similar feelings to merge. Higher thresholds (procedural: 0.97) require near-exact matches to merge patterns.
+
+**Reference:** `checkDuplication()` and `findSimilarMemories()` in `src/memory/deduplication.ts`
+
+## Using the Memory Store
+
+The SDK provides a `MemoryStore` interface for all memory operations:
 
 ```typescript
-// Store with deduplication
-const result = await memories.storeWithDedup({
+// Store a memory
+await agent.memory.store({
+  content: "Learned about vector databases",
+  type: "semantic",
+  importance: 0.7,
+});
+
+// Retrieve with filters
+const memories = await agent.memory.get({
   type: "episodic",
-  content: "Met Alice at the hackathon",
-  importance: 0.7
+  limit: 10,
 });
 
-if (result.deduplicated) {
-  console.log("Similar memory exists:", result.existingId);
-}
-```
-
-## Memory Linking
-
-Memories can be linked with bidirectional relationships:
-
-| Link Type | Description |
-|-----------|-------------|
-| `caused_by` | Causal relationship |
-| `related_to` | Semantic similarity |
-| `contradicts` | Conflicting information |
-| `elaborates` | Provides more detail |
-| `supersedes` | Replaces/updates |
-| `temporal_before` | Happened before |
-| `temporal_after` | Happened after |
-
-```typescript
-// Automatic link detection
-const links = detectPotentialLinks(newMemory, existingMemories, {
-  minSimilarity: 0.7,
-  maxLinks: 5,
-  detectContradictions: true
-});
-
-// Get memory with all its links
-const linked = getLinkedMemories(memoryId, memories, links, {
-  direction: "both"
+// Semantic search
+const results = await agent.memory.search({
+  query: "database concepts",
+  limit: 5,
 });
 ```
 
-## Memory Consolidation
+**Reference:** `src/memory/store.ts` for MemoryStore implementation
 
-Over time, related memories consolidate into core memories:
+## Salience and Confidence
 
-```typescript
-interface CoreMemory {
-  theme: string;              // Central topic
-  summary: string;            // Consolidated knowledge
-  insights: string[];         // Key takeaways
-  sourceMemoryIds: string[];  // Contributing memories
-  importance: number;
-  timespan: {
-    earliest: number;
-    latest: number;
-  };
-}
-```
+Two helper functions score memories automatically:
 
-The consolidation process:
-1. **Clustering** - Group similar memories by embedding
-2. **Theme Extraction** - Identify common topics
-3. **Summary Generation** - Create consolidated knowledge
-4. **Importance Decay** - Reduce weight of old memories
-5. **Core Formation** - Create or update core memories
+**Salience** measures how attention-grabbing content is:
+- Exclamation marks, caps, urgency words boost salience
+- Routine content scores lower
 
-## Self-Reflection
+**Confidence** measures reliability:
+- API sources score higher than user input
+- Verified facts score higher than opinions
 
-ClarkOS can generate metacognitive insights from memory patterns:
+**Reference:** `calculateSalience()` and `calculateConfidence()` in `src/memory/deduplication.ts`
+
+## Embeddings
+
+Vector embeddings enable semantic search across memories:
+
+| Provider | Dimensions | Model |
+|----------|------------|-------|
+| Gemini | 768 | text-embedding-004 |
+| OpenAI | 1536 | text-embedding-3-small |
 
 ```typescript
-const reflection = generateSelfReflection(memories, coreMemories, associations);
+import { createEmbeddingClient, cosineSimilarity } from "./src/llm";
 
-// Returns:
-// {
-//   reflections: [...],  // Individual reflections
-//   overallInsight: "...",
-//   memoryDraft: { type: "reflection", content: "...", ... }
-// }
+const embedder = createEmbeddingClient(config);
+const result = await embedder.embed("Hello world");
+const similarity = cosineSimilarity(embedding1, embedding2);
 ```
 
-Reflection types:
-- **Emotional** - Patterns in feelings
-- **Knowledge** - What's been learned
-- **Behavioral** - Activity patterns
-- **Growth** - How things are changing
+**Reference:** `src/llm/embeddings.ts` for embedding client and similarity functions
 
-## REST API
+## Memory Linking (Roadmap)
 
-```bash
-# List memories
-GET /memories?type=episodic&limit=10
+The architecture supports bidirectional memory links with 7 relationship types:
 
-# Get core memories
-GET /memories/core
+- `caused_by`, `related_to`, `contradicts`, `elaborates`, `supersedes`, `temporal_before`, `temporal_after`
 
-# Store a memory
-POST /memories/store
-{
-  "type": "semantic",
-  "content": "Layer 2 solutions reduce gas fees",
-  "importance": 0.8
-}
+This enables reasoning about how memories connect.
 
-# Store with deduplication
-POST /memories/store-dedup
+**Reference:** Link types defined in schema, detection API in development
 
-# Run consolidation
-POST /memories/consolidate
+## Memory Consolidation (Roadmap)
 
-# Generate self-reflection
-POST /memories/reflect
+Over time, related memories consolidate into **core memories**—summarized knowledge representing patterns across many individual memories. This mimics how human long-term memory works.
 
-# Get memory with links
-GET /memories/linked?id=...
-```
-
-## SDK Status
-
-Current SDK implementation:
-- 5 memory types (episodic, semantic, emotional, procedural, reflection)
-- Memory store with get/store/search/update/delete/getStats
-- Type-specific deduplication thresholds (0.88-0.97)
-- Three-tier dedup: exact match → Jaccard similarity → embedding similarity
-- Salience and confidence scoring utilities
-- Cosine similarity for embeddings
-
-Expanding to include:
-- Full bidirectional linking
-- Consolidation engine with clustering
-- Self-reflection generation
-- Core memory formation
+**Reference:** Consolidation implemented in CLARK backend, SDK integration planned
 
 ## Next Steps
 
 <CardGroup cols={2}>
-  <Card title="Consciousness" icon="lightbulb" href="/concepts/consciousness">
+  <Card title="Consciousness" href="/concepts/consciousness">
     How memories become thoughts.
   </Card>
-  <Card title="Tick System" icon="clock" href="/concepts/tick-system">
-    How memories integrate with execution.
+  <Card title="Memory Management" href="/guides/memory-management">
+    Advanced patterns and tuning.
   </Card>
 </CardGroup>

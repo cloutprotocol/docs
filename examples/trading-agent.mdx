@@ -3,280 +3,143 @@ title: "Trading Agent"
 description: "An agent that monitors markets and makes paper trades"
 ---
 
-This example shows how to build a trading agent that:
-- Monitors cryptocurrency markets
-- Forms opinions based on news and data
-- Makes paper trading decisions
-- Tracks portfolio performance
+## Overview
+
+This example demonstrates a trading agent that monitors cryptocurrency markets, forms opinions based on data, and makes paper trading decisions. It shows how to build plugins that work together.
+
+## What It Does
+
+- Fetches real-time market data from CoinGecko
+- Makes paper trading decisions based on agent mood and market conditions
+- Tracks portfolio performance over time
+- Only trades when agent is expressive and healthy
 
 ## Architecture
 
-```mermaid
-graph TD
-    A[Market Data] --> B[Agent Tick]
-    C[News Feeds] --> B
-    B --> D[Analysis]
-    D --> E[Trading Decision]
-    E --> F[Paper Portfolio]
-    F --> G[Performance Tracking]
+```
+Market Data Plugin ──┐
+                     ├──► Agent Tick ──► Trading Decision ──► Paper Portfolio
+News Plugin ─────────┘
 ```
 
-## Key Components
+Two plugins work together:
+1. **Markets Plugin** — Fetches and caches price data
+2. **Paper Trading Plugin** — Manages portfolio, executes trades
 
-### Market Data Plugin
+## Markets Plugin
+
+Fetches cryptocurrency prices and detects significant moves.
+
+**Key features:**
+- Configurable symbol list
+- Automatic refresh on interval
+- Caches data between ticks
+- Actions: `getMarkets()`, `getPrice(symbol)`
 
 ```typescript
-// plugins/markets.ts
-import type { Plugin, TickContext } from "./src";
-import type { Agent } from "./src";
-
-interface MarketData {
-  symbol: string;
-  price: number;
-  change24h: number;
-  volume: number;
-}
-
 export function createMarketsPlugin(config: {
   symbols: string[];
   refreshMinutes: number;
 }): Plugin {
-  let lastFetch = 0;
-  let cachedData: MarketData[] = [];
-
-  return {
-    name: "markets",
-    version: "1.0.0",
-
-    async init(agent: Agent) {
-      // Initial fetch
-      cachedData = await fetchMarketData(config.symbols);
-      lastFetch = Date.now();
-    },
-
-    async onTick(context: TickContext) {
-      // Refresh if stale
-      if (Date.now() - lastFetch > config.refreshMinutes * 60 * 1000) {
-        cachedData = await fetchMarketData(config.symbols);
-        lastFetch = Date.now();
-      }
-
-      // Log significant market moves
-      for (const data of cachedData) {
-        if (Math.abs(data.change24h) > 5) {
-          console.log(`Significant move: ${data.symbol} ${data.change24h > 0 ? "+" : ""}${data.change24h.toFixed(2)}%`);
-        }
-      }
-    },
-
-    actions: {
-      async getMarkets() {
-        return { success: true, data: cachedData };
-      },
-
-      async getPrice(params: { symbol: string }) {
-        const data = cachedData.find(d => d.symbol === params.symbol);
-        return { success: true, data: data?.price || null };
-      },
-    },
-  };
-}
-
-async function fetchMarketData(symbols: string[]): Promise<MarketData[]> {
-  const response = await fetch(
-    `https://api.coingecko.com/api/v3/coins/markets?vs_currency=usd&ids=${symbols.join(",")}`
-  );
-  const data = await response.json();
-  return data.map((coin: any) => ({
-    symbol: coin.symbol.toUpperCase(),
-    price: coin.current_price,
-    change24h: coin.price_change_percentage_24h,
-    volume: coin.total_volume,
-  }));
+  // Fetch from CoinGecko API
+  // Cache between refreshes
+  // Log significant moves (>5%)
 }
 ```
 
-### Paper Trading Plugin
+**Reference:** See `plugins/markets.ts` pattern in the repository.
+
+## Paper Trading Plugin
+
+Manages a simulated portfolio with position limits.
+
+**Key features:**
+- Initial cash balance
+- Max position size (% of portfolio)
+- Only trades when mood is expressive and health >50
+- Actions: `buy(symbol, price)`, `sell(symbol, price)`, `getPortfolio()`
 
 ```typescript
-// plugins/paper-trading.ts
-import type { Plugin, TickContext } from "./src";
-import type { Agent } from "./src";
-
-interface Position {
-  symbol: string;
-  amount: number;
-  entryPrice: number;
-  entryTime: number;
-}
-
-interface Portfolio {
-  cash: number;
-  positions: Position[];
-}
-
 export function createPaperTradingPlugin(config: {
   initialCash: number;
   maxPositionPercent: number;
 }): Plugin {
-  let portfolio: Portfolio = {
-    cash: config.initialCash,
-    positions: [],
-  };
-
-  const executeBuy = (symbol: string, price: number): { success: boolean; amount?: number; reason?: string } => {
-    const maxAmount = portfolio.cash * config.maxPositionPercent;
-    const amount = maxAmount / price;
-
-    if (amount * price > portfolio.cash) {
-      return { success: false, reason: "Insufficient funds" };
-    }
-
-    portfolio.cash -= amount * price;
-    portfolio.positions.push({
-      symbol,
-      amount,
-      entryPrice: price,
-      entryTime: Date.now(),
-    });
-
-    console.log(`Bought ${amount.toFixed(4)} ${symbol} at $${price}`);
-    return { success: true, amount };
-  };
-
-  const executeSell = (symbol: string, price: number): { success: boolean; pnl?: number; reason?: string } => {
-    const position = portfolio.positions.find(p => p.symbol === symbol);
-    if (!position) {
-      return { success: false, reason: "No position" };
-    }
-
-    const proceeds = position.amount * price;
-    const pnl = proceeds - (position.amount * position.entryPrice);
-
-    portfolio.cash += proceeds;
-    portfolio.positions = portfolio.positions.filter(p => p.symbol !== symbol);
-
-    console.log(`Sold ${position.amount.toFixed(4)} ${symbol} at $${price}, PnL: $${pnl.toFixed(2)}`);
-    return { success: true, pnl };
-  };
-
-  return {
-    name: "paper-trading",
-    version: "1.0.0",
-    dependencies: ["markets"],
-
-    onTick(context: TickContext) {
-      // Only trade when expressive and healthy
-      if (context.state.mood !== "expressive" || context.state.health < 50) {
-        return;
-      }
-
-      // Log portfolio status each tick
-      const totalValue = portfolio.cash +
-        portfolio.positions.reduce((sum, p) => sum + p.amount * p.entryPrice, 0);
-      console.log(`Portfolio value: $${totalValue.toFixed(2)}`);
-    },
-
-    actions: {
-      async getPortfolio() {
-        const totalValue = portfolio.cash +
-          portfolio.positions.reduce((sum, p) => sum + p.amount * p.entryPrice, 0);
-
-        return {
-          success: true,
-          data: {
-            cash: portfolio.cash,
-            positions: portfolio.positions,
-            totalValue,
-            totalPnL: totalValue - config.initialCash,
-          }
-        };
-      },
-
-      async buy(params: { symbol: string; price: number }, agent: Agent) {
-        return executeBuy(params.symbol, params.price);
-      },
-
-      async sell(params: { symbol: string; price: number }, agent: Agent) {
-        return executeSell(params.symbol, params.price);
-      },
-    },
-  };
+  // Track positions and cash
+  // Enforce position limits
+  // Log trades and P&L
 }
-
 ```
 
-### Complete Agent Setup
+**Reference:** See `plugins/paper-trading.ts` pattern in the repository.
+
+## Plugin Dependencies
+
+The trading plugin depends on the markets plugin:
 
 ```typescript
-// agent.ts
-import { Agent } from "./src";
-import { ConvexBackend } from "./src/backend";
-import { createMarketsPlugin } from "./plugins/markets";
-import { createPaperTradingPlugin } from "./plugins/paper-trading";
+{
+  name: "paper-trading",
+  dependencies: ["markets"],
+  // ...
+}
+```
 
-const backend = new ConvexBackend({
-  url: process.env.CONVEX_URL!,
-});
+This ensures markets data is available when making trading decisions.
 
-export const tradingAgent = new Agent({
-  backend,
+## Agent Setup
+
+```typescript
+const agent = new Agent({
+  backend: new ConvexBackend({ url: process.env.CONVEX_URL }),
   plugins: [
     createMarketsPlugin({
       symbols: ["bitcoin", "ethereum", "solana"],
       refreshMinutes: 5,
     }),
-
     createPaperTradingPlugin({
       initialCash: 10000,
-      maxPositionPercent: 0.2,  // 20% max per position
+      maxPositionPercent: 0.2,  // Max 20% per position
     }),
   ],
 });
-
-// Execute a tick
-await tradingAgent.tick();
-
-// Or start automatic ticks
-tradingAgent.start();
 ```
 
-## Running the Trading Agent
+## Risk Controls
+
+This example includes several safeguards:
+
+| Control | Description |
+|---------|-------------|
+| Position limits | Max 20% of portfolio per trade |
+| Mood gating | Only trades when expressive |
+| Health threshold | Requires health >50 |
+| Paper trading | No real money at risk |
+
+## Running
 
 ```bash
-# Start the agent
 npm run dev
 
 # Check portfolio
 curl http://localhost:3001/actions/paper-trading/getPortfolio
 
-# Manual trade
+# Manual trade (for testing)
 curl -X POST http://localhost:3001/actions/paper-trading/buy \
   -H "Authorization: Bearer $TOKEN" \
-  -H "Content-Type: application/json" \
-  -d '{"symbol": "ETH", "amountUsd": 500}'
+  -d '{"symbol": "ETH", "price": 2000}'
 ```
 
-## Risk Management
-
-This example includes several risk controls:
-
-1. **Position limits**: Max 20% of portfolio per position
-2. **Mood gating**: Only trades when expressive and healthy
-3. **Confidence threshold**: Requires 0.7+ confidence on thoughts
-4. **Paper trading**: No real money at risk
-
 <Warning>
-  This is for educational purposes only. Never trade real money based on AI agent decisions without proper risk management and human oversight.
+This is for educational purposes only. Never trade real money based on AI agent decisions without proper risk management and human oversight.
 </Warning>
 
 ## Next Steps
 
 <CardGroup cols={2}>
-  <Card title="Social Agent" icon="users" href="/examples/social-agent">
-    Build an agent that engages on social media.
+  <Card title="Social Agent" href="/examples/social-agent">
+    Build an agent that posts content.
   </Card>
-  <Card title="Custom Plugins" icon="plug" href="/guides/custom-plugins">
-    Learn to build your own plugins.
+  <Card title="Custom Plugins" href="/guides/custom-plugins">
+    Learn plugin development patterns.
   </Card>
 </CardGroup>
