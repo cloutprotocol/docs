@@ -3,101 +3,129 @@ title: "Example Plugins"
 description: "Reference plugin implementations in the repository"
 ---
 
-The repository includes example plugins demonstrating common patterns. These are reference implementations—configure with your own API credentials to use.
+The repository includes example plugins demonstrating common patterns. These show the integration approach used in the actual clark agent.
 
-**Reference:** All examples in `plugins/` directory.
+**Reference:** Feed implementations in `backend/convex/tick.ts`
 
-## Social Plugins
+## Feed Plugins
 
-### Twitter Plugin
+### 4chan Feed
 
-Post tweets, reply to mentions, monitor keywords. Uses mood-gating to post only when expressive.
+Fetches trending threads from SFW 4chan boards. Demonstrates routine-based source rotation and activity scoring.
 
-| Config | Type | Description |
-|--------|------|-------------|
-| `apiKey` | string | Twitter API key |
-| `apiSecret` | string | Twitter API secret |
-| `accessToken` | string | OAuth access token |
-| `accessSecret` | string | OAuth access secret |
-| `postEnabled` | boolean | Enable posting |
-| `cooldownMinutes` | number | Minutes between posts |
+| Config | Description |
+|--------|-------------|
+| `CHAN_BOARDS` | SFW boards: g, sci, lit, mu, his, fit, ck, fa, tg, biz, tv, vg |
+| `CHAN_BOARD_ROTATION` | Maps routine → active boards |
+| `CHAN_REFRESH_MS` | Cooldown between fetches |
 
-**Actions:** `post(content)`, `getMentions()`
+**How it works:**
 
-**Reference:** `plugins/twitter.ts`
+1. **Board selection** — Picks board based on routine (morning gets tech/science, evening gets literature/music)
+2. **Fetch catalog** — Calls `api.4chan.org/{board}/catalog.json`
+3. **Score threads** — Ranks by `replies + images` for activity
+4. **Sanitize text** — Strips HTML, decodes entities, filters blocked content
+5. **Store as knowledge** — Saves with type "chan" and board source
 
-### Discord Plugin
+**Reference:** `pickChanThread()`, `maybeInjectChan()` in `backend/convex/tick.ts`
 
-Community engagement through Discord bot integration.
+### News Feed
 
-| Config | Type | Description |
-|--------|------|-------------|
-| `token` | string | Bot token |
-| `guildId` | string | Server ID |
-| `channelId` | string | Default channel |
-| `respondToMentions` | boolean | Auto-respond |
+Aggregates news from HN, BBC, and RSS sources. Uses routine-based source rotation.
 
-**Actions:** `sendMessage(content, channelId?)`
+| Config | Description |
+|--------|-------------|
+| `RSS_SOURCES` | Feed URLs by source name |
+| `NEWS_SOURCE_ROTATION` | Maps routine → preferred sources |
+| `NEWS_REFRESH_MS` | Cooldown between fetches |
+| `NEWS_MIN_SCORE` | Minimum HN score threshold |
 
-**Reference:** `plugins/discord.ts`
+**How it works:**
 
-## Data Plugins
+1. **Source rotation** — Morning prefers HN/tech, evening prefers general news
+2. **Fetch stories** — From RSS feeds or HN API
+3. **Filter duplicates** — Compares against existing knowledge titles
+4. **Store as knowledge** — Saves with type "news" and source attribution
 
-### News Plugin
+**Reference:** `pickNewsStory()`, `maybeInjectNews()` in `backend/convex/tick.ts`
 
-Multi-source news aggregation from RSS feeds and APIs.
+### Markets Feed
 
-| Config | Type | Description |
-|--------|------|-------------|
-| `sources` | NewsSource[] | Feed URLs and types |
-| `refreshMinutes` | number | Fetch interval |
-| `keywords` | string[] | Filter terms |
+Fetches cryptocurrency price data and trending tokens.
 
-**Actions:** `getLatest(limit?)`
+| Config | Description |
+|--------|-------------|
+| `MARKET_REFRESH_MS` | Price refresh interval |
+| Symbols | Configurable token list |
 
-**Reference:** `plugins/news.ts`
+**Reference:** `maybeInjectMarket()` in `backend/convex/tick.ts`
 
-### Markets Plugin
+## Knowledge Types
 
-Real-time cryptocurrency price data from CoinGecko.
+Feeds store data as knowledge items with these types:
 
-| Config | Type | Description |
-|--------|------|-------------|
-| `symbols` | string[] | Coin IDs (e.g., "bitcoin") |
-| `refreshMinutes` | number | Cache refresh interval |
+| Type | Source | Description |
+|------|--------|-------------|
+| `chan` | 4chan boards | Thread subjects and content |
+| `news` | HN, BBC, RSS | Headlines and URLs |
+| `market` | DexScreener, CoinGecko | Price data and trends |
+| `prediction` | Polymarket | Prediction market data |
 
-**Actions:** `getPrice(symbol)`, `getAllPrices()`
+**Reference:** `normalizeType()` in `backend/convex/knowledge.ts`
 
-**Reference:** `plugins/markets.ts`
+## Plugin Pattern
 
-## Using Example Plugins
+The ink SDK uses a service-based pattern for feeds:
 
 ```typescript
-import { Agent } from "./src";
-import { ConvexBackend } from "./src/backend";
-import { createTwitterPlugin } from "./plugins/twitter";
-import { createNewsPlugin } from "./plugins/news";
+export class NewsService implements Service {
+  name = 'news';
+  type: ServiceType = 'news';
 
-const agent = new Agent({
-  backend: new ConvexBackend({ url: process.env.CONVEX_URL! }),
-  plugins: [
-    createTwitterPlugin({
-      apiKey: process.env.TWITTER_API_KEY!,
-      apiSecret: process.env.TWITTER_API_SECRET!,
-      accessToken: process.env.TWITTER_ACCESS_TOKEN!,
-      accessSecret: process.env.TWITTER_ACCESS_SECRET!,
-      postEnabled: true,
-      cooldownMinutes: 60
-    }),
-    createNewsPlugin({
-      sources: [{ name: "coindesk", url: "https://coindesk.com/rss" }],
-      refreshMinutes: 15
-    })
-  ]
-});
+  private cache: NewsItem[] = [];
+  private lastRefresh: number | null = null;
 
-// Execute action
-await agent.executeAction("twitter", "post", { content: "Hello!" });
+  async refresh(): Promise<void> {
+    // Fetch from sources
+    // Deduplicate by similarity
+    // Update cache
+  }
+
+  async getData<T = NewsItem[]>(): Promise<T> {
+    return this.cache as T;
+  }
+}
+```
+
+**Reference:** `src/services/news.ts` in ink
+
+## Implementing Custom Feeds
+
+To add a new feed source:
+
+1. **Define source config** — URLs, rotation schedule, refresh interval
+2. **Implement fetcher** — Call external API, parse response
+3. **Score/filter content** — Activity metrics, blocked phrases
+4. **Store as knowledge** — Use appropriate type, include source attribution
+
+```typescript
+// Example: Custom feed injection
+const maybeInjectCustomFeed = async (ctx, knowledge, nowMs, routine) => {
+  const lastAt = latestTimestamp(knowledge, isCustomItem);
+  if (lastAt && nowMs - lastAt < REFRESH_MS) return knowledge;
+
+  const item = await fetchCustomSource(routine);
+  if (!item) return knowledge;
+
+  const entry = await ctx.runMutation(api.knowledge.addKnowledge, {
+    text: item.text,
+    url: item.url,
+    type: "custom",
+    author: item.source
+  });
+
+  return [entry, ...knowledge];
+};
 ```
 
 ## Next Steps

@@ -69,19 +69,19 @@ export const myPlugin: Plugin = {
 
 **Reference:** See `plugins/` directory for implementation patterns.
 
-## Example Plugins
+## Feed Examples
 
-The repository includes example plugin patterns:
+The clark agent includes these feed implementations:
 
-| Plugin | Purpose | Reference |
-|--------|---------|-----------|
-| Twitter | Social posting with cooldowns | `plugins/twitter.ts` |
-| News | RSS/API feed aggregation | `plugins/news.ts` |
-| Markets | Price data fetching | `plugins/markets.ts` |
+| Feed | Source | Reference |
+|------|--------|-----------|
+| 4chan | SFW boards (g, sci, biz, etc.) | `backend/convex/tick.ts` |
+| News | HN, BBC, RSS feeds | `backend/convex/tick.ts` |
+| Markets | DexScreener, CoinGecko | `backend/convex/tick.ts` |
 
-<Note>
-These are reference implementations demonstrating plugin patterns. Configure API credentials to use.
-</Note>
+Key patterns: routine-based source rotation, activity scoring, cooldown refresh, knowledge storage.
+
+**Reference:** See [Example Plugins](/plugins/official) for implementation details.
 
 ## Best Practices
 
