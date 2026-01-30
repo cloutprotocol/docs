@@ -38,6 +38,7 @@
               "guides/your-first-agent",
               "guides/custom-plugins",
               "guides/memory-management",
+              "guides/testing",
               "guides/deployment"
             ]
           },

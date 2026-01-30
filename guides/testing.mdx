@@ -1,0 +1,321 @@
+---
+title: "Testing"
+description: "Test framework and guidelines for ClarkOS agents"
+---
+
+## Overview
+
+The ink SDK includes a comprehensive Jest test framework with **179 tests** across 7 test suites, providing full coverage of core functionality.
+
+## Quick Start
+
+```bash
+# Run all tests
+npm test
+
+# Run tests in watch mode
+npm run test:watch
+
+# Generate coverage report
+npm run test:coverage
+```
+
+## Test Coverage
+
+| Module | Tests | Description |
+|--------|-------|-------------|
+| `core/tick` | 25 | Routine calculation, health drift, tick execution, tick runner |
+| `core/config` | 22 | Configuration validation, environment loading, Zod schemas |
+| `memory/deduplication` | 34 | 3-tier dedup strategy, type thresholds, similarity |
+| `backend/memory` | 22 | In-memory backend, state management, CRUD operations |
+| `plugins/loader` | 26 | Plugin validation, dependency sorting, cycle detection |
+| `llm/embeddings` | 32 | Cosine similarity, find similar, provider configurations |
+| `services/news` | 21 | Service lifecycle, caching, deduplication |
+| **Total** | **179** | All passing |
+
+## Test Structure
+
+```
+ink/
+├── jest.config.js           # Jest configuration
+├── tests/
+│   ├── setup.ts             # Test utilities and custom matchers
+│   ├── core/
+│   │   ├── tick.test.ts     # Tick system tests
+│   │   └── config.test.ts   # Configuration tests
+│   ├── memory/
+│   │   └── deduplication.test.ts  # Deduplication tests
+│   ├── backend/
+│   │   └── memory.test.ts   # In-memory backend tests
+│   ├── plugins/
+│   │   └── loader.test.ts   # Plugin loader tests
+│   ├── llm/
+│   │   └── embeddings.test.ts  # Embedding client tests
+│   └── services/
+│       └── news.test.ts     # News service tests
+```
+
+## Writing Tests
+
+### Basic Test Structure
+
+```typescript
+import { jest, describe, it, expect, beforeEach } from '@jest/globals';
+import { myFunction } from '../../src/module/file.js';
+
+describe('myFunction', () => {
+  beforeEach(() => {
+    // Setup before each test
+  });
+
+  it('does something expected', () => {
+    const result = myFunction('input');
+    expect(result).toBe('expected');
+  });
+
+  it('handles edge cases', () => {
+    expect(() => myFunction(null)).toThrow();
+  });
+});
+```
+
+### Using MemoryBackend for Tests
+
+The `MemoryBackend` is ideal for testing without a real Convex deployment:
+
+```typescript
+import { MemoryBackend } from '../../src/backend/memory.js';
+
+describe('MyFeature', () => {
+  let backend: MemoryBackend;
+
+  beforeEach(() => {
+    backend = new MemoryBackend();
+  });
+
+  afterEach(() => {
+    backend.reset(); // Clear all data between tests
+  });
+
+  it('stores and retrieves data', async () => {
+    await backend.storeMemory({
+      content: 'Test memory',
+      type: 'semantic',
+      scope: 'working',
+      importance: 0.5,
+      // ... other required fields
+    });
+
+    const memories = await backend.getMemories({ type: 'semantic' });
+    expect(memories.length).toBe(1);
+  });
+});
+```
+
+### Testing Plugins
+
+```typescript
+import { executeTick } from '../../src/core/tick.js';
+import { MemoryBackend } from '../../src/backend/memory.js';
+import { createConfig } from '../../src/core/config.js';
+import type { Plugin } from '../../src/plugins/types.js';
+
+describe('Plugin Integration', () => {
+  it('calls plugin onTick hook', async () => {
+    const backend = new MemoryBackend();
+    const config = createConfig({ verbose: false });
+
+    const onTickMock = jest.fn();
+    const plugin: Plugin = {
+      name: 'test-plugin',
+      version: '1.0.0',
+      onTick: onTickMock,
+    };
+
+    await executeTick(backend, [plugin], config);
+
+    expect(onTickMock).toHaveBeenCalledTimes(1);
+    expect(onTickMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        state: expect.any(Object),
+        memories: expect.any(Array),
+      })
+    );
+  });
+});
+```
+
+### Mocking External APIs
+
+For tests that call external APIs (LLM, embeddings), mock the fetch function:
+
+```typescript
+import { jest, beforeEach, afterEach } from '@jest/globals';
+
+describe('EmbeddingClient', () => {
+  beforeEach(() => {
+    global.fetch = jest.fn().mockResolvedValue({
+      ok: true,
+      json: () => Promise.resolve({
+        embedding: { values: [0.1, 0.2, 0.3] }
+      }),
+    });
+  });
+
+  afterEach(() => {
+    jest.restoreAllMocks();
+  });
+
+  it('calls the API', async () => {
+    // Your test using the mocked fetch
+    expect(global.fetch).toHaveBeenCalled();
+  });
+});
+```
+
+## Test Configuration
+
+The framework uses Jest with ESM support:
+
+```javascript
+// jest.config.js
+export default {
+  preset: 'ts-jest/presets/default-esm',
+  testEnvironment: 'node',
+  extensionsToTreatAsEsm: ['.ts', '.tsx'],
+  coverageThreshold: {
+    global: {
+      branches: 70,
+      functions: 70,
+      lines: 70,
+      statements: 70,
+    },
+  },
+};
+```
+
+## Running Specific Tests
+
+```bash
+# Run a specific test file
+npm test -- tests/core/tick.test.ts
+
+# Run tests matching a pattern
+npm test -- --testPathPattern="memory"
+
+# Run a specific test by name
+npm test -- -t "calculates routine"
+```
+
+## Coverage Reports
+
+After running `npm run test:coverage`:
+
+- `coverage/lcov-report/index.html` - HTML report (open in browser)
+- `coverage/lcov.info` - LCOV format for CI integration
+- Terminal output shows summary
+
+## What's Tested
+
+### Tick System
+
+- Routine boundaries (6am, 12pm, 6pm, 12am)
+- Health drift calculations with mean reversion toward 75
+- Cryo mode behavior
+- Plugin hook execution
+- Error handling and recovery
+
+### Deduplication
+
+- All 5 memory type thresholds:
+  - Episodic: 0.92
+  - Semantic: 0.95
+  - Emotional: 0.88
+  - Procedural: 0.97
+  - Reflection: 0.90
+- 3-tier strategy:
+  1. Exact content match
+  2. Jaccard similarity (word overlap > 0.85)
+  3. Embedding similarity (type-specific)
+
+### Plugin System
+
+- Plugin validation rules
+- Dependency resolution (topological sort)
+- Circular dependency detection
+- Lifecycle hooks (init, cleanup, onTick)
+
+### Embeddings
+
+- Cosine similarity calculations
+- Provider configuration (Gemini, OpenAI, custom)
+- Batch embedding support
+- Error handling for API failures
+
+## Best Practices
+
+<AccordionGroup>
+  <Accordion title="Isolate tests">
+    Each test should be independent. Use `beforeEach` to reset state and `afterEach` for cleanup.
+  </Accordion>
+
+  <Accordion title="Test behavior, not implementation">
+    Focus on what the function does, not how it does it. This makes tests more resilient to refactoring.
+  </Accordion>
+
+  <Accordion title="Use descriptive names">
+    Test names should describe the expected behavior: "returns error when agent is in cryo mode" not "test cryo".
+  </Accordion>
+
+  <Accordion title="Keep tests fast">
+    Mock external dependencies. Use `MemoryBackend` instead of real Convex connections.
+  </Accordion>
+
+  <Accordion title="Test edge cases">
+    Include tests for error conditions, empty inputs, and boundary values.
+  </Accordion>
+</AccordionGroup>
+
+## CI Integration
+
+Example GitHub Actions workflow:
+
+```yaml
+name: Tests
+on: [push, pull_request]
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Install dependencies
+        run: |
+          cd ink
+          npm ci
+
+      - name: Run tests
+        run: |
+          cd ink
+          npm test
+
+      - name: Upload coverage
+        uses: codecov/codecov-action@v3
+        with:
+          files: ./ink/coverage/lcov.info
+```
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="Custom Plugins" icon="plug" href="/guides/custom-plugins">
+    Build plugins with testable hooks.
+  </Card>
+  <Card title="Deployment" icon="rocket" href="/guides/deployment">
+    Deploy your tested agent.
+  </Card>
+</CardGroup>

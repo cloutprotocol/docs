@@ -77,6 +77,33 @@ Endpoints exist in backend but not exposed via HTTP router:
 | Action system | Complete | Registry with builtin actions |
 | Template engine | Complete | Tick, reflection, consciousness templates |
 | Service layer | Complete | News, Market services |
+| **Test Framework** | Complete | Jest with 179 tests |
+
+### Test Coverage
+
+The ink SDK includes a comprehensive Jest test framework:
+
+| Module | Tests | Status |
+|--------|-------|--------|
+| `core/tick` | 25 | Routine calculation, health drift, tick execution |
+| `core/config` | 22 | Configuration validation, env loading, Zod schemas |
+| `memory/deduplication` | 34 | 3-tier dedup, type thresholds, similarity |
+| `backend/memory` | 22 | In-memory backend, state management, CRUD |
+| `plugins/loader` | 26 | Validation, dependency sorting, cycle detection |
+| `llm/embeddings` | 32 | Cosine similarity, find similar, providers |
+| `services/news` | 21 | Service lifecycle, caching, deduplication |
+| **Total** | **179** | All passing |
+
+```bash
+# Run tests
+npm test
+
+# Watch mode
+npm run test:watch
+
+# Coverage report
+npm run test:coverage
+```
 
 ### Not Implemented
 
