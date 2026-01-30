@@ -56,7 +56,7 @@ Plugins receive a `TickContext` with everything they need:
 | `knowledge` | Recent knowledge items |
 | `recentLogs` | Recent activity logs |
 
-**Reference:** `TickContext` interface in `src/plugins/types.ts`
+**Reference:** `TickContext` interface in `src/core/types.ts`
 
 ## Triggering Ticks
 
@@ -96,7 +96,7 @@ The runner handles intervals, error recovery, and graceful shutdown.
 | Option | Default | Description |
 |--------|---------|-------------|
 | `interval` | 60000ms | Time between ticks |
-| `timeout` | 30000ms | Max time per tick |
+| `auto` | false | Start ticking automatically |
 | `maxRetries` | 3 | Retry attempts on failure |
 
 **Reference:** Tick config in `src/core/config.ts`

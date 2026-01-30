@@ -19,7 +19,7 @@ ClarkOS implements a cognitive memory system with five distinct types, vector em
 
 The **reflection** type enables metacognitive capabilities—agents can reason about their own patterns.
 
-**Reference:** Types defined in `src/types.ts`, thresholds in `src/memory/deduplication.ts`
+**Reference:** Types defined in `src/core/types.ts`, thresholds in `src/memory/deduplication.ts`
 
 ## Memory Structure
 
@@ -35,9 +35,12 @@ Each memory includes rich metadata:
 | `confidence` | 0-1, how reliable |
 | `valence` | -1 to 1, emotional charge |
 | `tags` | Categorization labels |
-| `embedding` | Vector for semantic search |
+| `accessCount` | Times accessed |
+| `unique` | Passed deduplication check |
 
-**Reference:** Full interface in `src/types.ts`
+**Reference:** Full interface in `src/core/types.ts`
+
+Embeddings are generated and used for deduplication/search but stored separately from the core Memory structure.
 
 ## Deduplication
 

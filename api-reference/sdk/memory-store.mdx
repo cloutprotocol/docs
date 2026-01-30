@@ -16,7 +16,8 @@ The `MemoryStore` interface provides methods for storing, retrieving, and managi
 const memory = agent.memory;
 
 // Or create standalone
-import { createMemoryStore, MemoryBackend } from "./src";
+import { createMemoryStore } from "./src/memory";
+import { MemoryBackend } from "./src/backend";
 const memory = createMemoryStore(new MemoryBackend());
 ```
 
