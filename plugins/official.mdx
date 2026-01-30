@@ -1,140 +1,150 @@
 ---
-title: "Example Plugins"
-description: "Reference plugin implementations in the repository"
+title: "Built-in Services"
+description: "Data services included with the ink SDK"
 ---
 
-The repository includes example plugins demonstrating common patterns. These show the integration approach used in the actual clark agent.
+The ink SDK includes two built-in services for common data needs. Services run independently of the tick cycle, caching data for efficient access.
 
-**Reference:** Feed implementations in `backend/convex/tick.ts`
+**Reference:** `src/services/` directory
 
-## Feed Plugins
+## Service Interface
 
-### 4chan Feed
+All services implement this interface:
 
-Fetches trending threads from SFW 4chan boards. Demonstrates routine-based source rotation and activity scoring.
-
-| Config | Description |
+| Method | Description |
 |--------|-------------|
-| `CHAN_BOARDS` | SFW boards: g, sci, lit, mu, his, fit, ck, fa, tg, biz, tv, vg |
-| `CHAN_BOARD_ROTATION` | Maps routine → active boards |
-| `CHAN_REFRESH_MS` | Cooldown between fetches |
+| `initialize(runtime)` | Setup with agent runtime |
+| `start()` | Begin data fetching |
+| `stop()` | Cleanup and stop |
+| `getData<T>()` | Get cached data |
+| `refresh()` | Force immediate refresh |
+| `getHealth()` | Get status and stats |
 
-**How it works:**
+**Reference:** `Service` interface in `src/services/types.ts`
 
-1. **Board selection** — Picks board based on routine (morning gets tech/science, evening gets literature/music)
-2. **Fetch catalog** — Calls `api.4chan.org/{board}/catalog.json`
-3. **Score threads** — Ranks by `replies + images` for activity
-4. **Sanitize text** — Strips HTML, decodes entities, filters blocked content
-5. **Store as knowledge** — Saves with type "chan" and board source
+## NewsService
 
-**Reference:** `pickChanThread()`, `maybeInjectChan()` in `backend/convex/tick.ts`
+Fetches and caches news from RSS feeds and APIs.
 
-### News Feed
+| Config | Default | Description |
+|--------|---------|-------------|
+| `refreshInterval` | 5 min | Time between fetches |
+| `maxCacheAge` | 30 min | Stale cache threshold |
+| `options.sources` | BBC, CoinDesk, TechCrunch | News sources |
 
-Aggregates news from HN, BBC, and RSS sources. Uses routine-based source rotation.
-
-| Config | Description |
-|--------|-------------|
-| `RSS_SOURCES` | Feed URLs by source name |
-| `NEWS_SOURCE_ROTATION` | Maps routine → preferred sources |
-| `NEWS_REFRESH_MS` | Cooldown between fetches |
-| `NEWS_MIN_SCORE` | Minimum HN score threshold |
-
-**How it works:**
-
-1. **Source rotation** — Morning prefers HN/tech, evening prefers general news
-2. **Fetch stories** — From RSS feeds or HN API
-3. **Filter duplicates** — Compares against existing knowledge titles
-4. **Store as knowledge** — Saves with type "news" and source attribution
-
-**Reference:** `pickNewsStory()`, `maybeInjectNews()` in `backend/convex/tick.ts`
-
-### Markets Feed
-
-Fetches cryptocurrency price data and trending tokens.
-
-| Config | Description |
-|--------|-------------|
-| `MARKET_REFRESH_MS` | Price refresh interval |
-| Symbols | Configurable token list |
-
-**Reference:** `maybeInjectMarket()` in `backend/convex/tick.ts`
-
-## Knowledge Types
-
-Feeds store data as knowledge items with these types:
-
-| Type | Source | Description |
-|------|--------|-------------|
-| `chan` | 4chan boards | Thread subjects and content |
-| `news` | HN, BBC, RSS | Headlines and URLs |
-| `market` | DexScreener, CoinGecko | Price data and trends |
-| `prediction` | Polymarket | Prediction market data |
-
-**Reference:** `normalizeType()` in `backend/convex/knowledge.ts`
-
-## Plugin Pattern
-
-The ink SDK uses a service-based pattern for feeds:
-
+**Default sources:**
 ```typescript
-export class NewsService implements Service {
-  name = 'news';
-  type: ServiceType = 'news';
+const DEFAULT_SOURCES = [
+  { name: 'bbc', url: 'https://feeds.bbci.co.uk/news/technology/rss.xml', parser: 'rss' },
+  { name: 'coindesk', url: 'https://www.coindesk.com/arc/outboundfeeds/rss/', parser: 'rss' },
+  { name: 'techcrunch', url: 'https://techcrunch.com/feed/', parser: 'rss' },
+];
+```
 
-  private cache: NewsItem[] = [];
-  private lastRefresh: number | null = null;
+**Usage:**
+```typescript
+import { createNewsService } from './src/services';
 
-  async refresh(): Promise<void> {
-    // Fetch from sources
-    // Deduplicate by similarity
-    // Update cache
-  }
+const news = createNewsService({
+  refreshInterval: 5 * 60 * 1000,
+  options: { sources: customSources }
+});
 
-  async getData<T = NewsItem[]>(): Promise<T> {
-    return this.cache as T;
-  }
+await news.start();
+const items = await news.getData<NewsItem[]>();
+```
+
+**Reference:** `src/services/news.ts`
+
+## MarketService
+
+Fetches cryptocurrency price data with sentiment analysis.
+
+| Config | Default | Description |
+|--------|---------|-------------|
+| `refreshInterval` | 4 min | Time between fetches |
+| `maxCacheAge` | 10 min | Stale cache threshold |
+| `options.assets` | bitcoin, ethereum, solana | Tracked assets |
+
+**Data returned:**
+```typescript
+interface MarketData {
+  timestamp: number;
+  assets: MarketAsset[];      // Price, change, volume per asset
+  overall: MarketSentiment;   // bullish, bearish, neutral, volatile
+  volatilityIndex?: number;   // 0-1 volatility score
 }
 ```
 
-**Reference:** `src/services/news.ts` in ink
+**Usage:**
+```typescript
+import { createMarketService } from './src/services';
 
-## Implementing Custom Feeds
+const market = createMarketService({
+  options: { assets: ['bitcoin', 'ethereum'] }
+});
 
-To add a new feed source:
+await market.start();
+const data = await market.getData<MarketData>();
+```
 
-1. **Define source config** — URLs, rotation schedule, refresh interval
-2. **Implement fetcher** — Call external API, parse response
-3. **Score/filter content** — Activity metrics, blocked phrases
-4. **Store as knowledge** — Use appropriate type, include source attribution
+**Reference:** `src/services/market.ts`
+
+## Service Types
+
+| Type | Description |
+|------|-------------|
+| `news` | News feed aggregation |
+| `market` | Price and market data |
+| `social` | Social media mentions |
+| `calendar` | Calendar/scheduling |
+| `wallet` | Wallet/blockchain data |
+| `storage` | File/data storage |
+| `custom` | User-defined services |
+
+**Reference:** `ServiceType` enum in `src/services/types.ts`
+
+## Creating All Built-ins
 
 ```typescript
-// Example: Custom feed injection
-const maybeInjectCustomFeed = async (ctx, knowledge, nowMs, routine) => {
-  const lastAt = latestTimestamp(knowledge, isCustomItem);
-  if (lastAt && nowMs - lastAt < REFRESH_MS) return knowledge;
+import { createBuiltinServices } from './src/services';
 
-  const item = await fetchCustomSource(routine);
-  if (!item) return knowledge;
+const services = createBuiltinServices();
+// Returns [NewsService, MarketService]
+```
 
-  const entry = await ctx.runMutation(api.knowledge.addKnowledge, {
-    text: item.text,
-    url: item.url,
-    type: "custom",
-    author: item.source
-  });
+## Custom Data Fetcher
 
-  return [entry, ...knowledge];
-};
+Services expect a custom fetcher for real data:
+
+```typescript
+const news = createNewsService({
+  options: {
+    fetcher: async (source) => {
+      // Implement actual RSS/API fetching
+      const response = await fetch(source.url);
+      return parseRSS(await response.text());
+    }
+  }
+});
+```
+
+Without a fetcher, services return empty data with a console warning.
+
+## Service Health
+
+```typescript
+const health = news.getHealth();
+// { status, lastRefresh, lastError, refreshCount, errorCount, cacheSize }
 ```
 
 ## Next Steps
 
 <CardGroup cols={2}>
-  <Card title="Build Your Own" href="/guides/custom-plugins">
-    Create custom plugins for your use case.
-  </Card>
   <Card title="Plugin SDK" href="/api-reference/sdk/plugins">
-    Full plugin interface reference.
+    Build plugins that use service data.
+  </Card>
+  <Card title="Custom Plugins" href="/guides/custom-plugins">
+    Create your own integrations.
   </Card>
 </CardGroup>

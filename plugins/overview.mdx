@@ -1,20 +1,22 @@
 ---
 title: "Plugin Overview"
-description: "Extending ClarkOS agents with plugins"
+description: "Extending agents with plugins and services"
 ---
 
-Plugins are the primary extension mechanism for ClarkOS agents. They hook into the tick lifecycle, expose actions, and add capabilities without modifying core logic.
+The ink SDK provides two extension mechanisms: **Plugins** for tick lifecycle hooks and **Services** for background data fetching.
 
-## What Plugins Can Do
+## Plugins vs Services
 
-| Category | Examples |
-|----------|----------|
-| External integrations | Twitter, Telegram, trading platforms |
-| Data sources | News feeds, market data, social mentions |
-| Actions | Post content, execute trades, send notifications |
-| Analytics | Track metrics, log events, monitoring |
+| Aspect | Plugins | Services |
+|--------|---------|----------|
+| Purpose | React to ticks, expose actions | Fetch and cache data |
+| Lifecycle | Tied to tick cycle | Independent background |
+| Interface | `onTick`, `actions` | `getData`, `refresh` |
+| Reference | `src/plugins/types.ts` | `src/services/types.ts` |
 
 ## Plugin Interface
+
+Plugins hook into the agent tick lifecycle:
 
 | Field | Type | Description |
 |-------|------|-------------|
@@ -27,76 +29,83 @@ Plugins are the primary extension mechanism for ClarkOS agents. They hook into t
 
 **Reference:** `Plugin` interface in `src/plugins/types.ts`
 
-## TickContext
+## Service Interface
 
-Plugins receive context on each tick:
+Services run independently, caching data:
 
-| Field | Type | Description |
-|-------|------|-------------|
-| `state` | AgentState | Mood, health, routine |
-| `memories` | Memory[] | Retrieved memories |
-| `knowledge` | Knowledge[] | Retrieved knowledge |
-| `recentLogs` | Log[] | Recent activity |
+| Method | Description |
+|--------|-------------|
+| `initialize(runtime)` | Setup with runtime context |
+| `start()` | Begin fetching |
+| `stop()` | Cleanup |
+| `getData<T>()` | Get cached data |
+| `refresh()` | Force refresh |
+| `getHealth()` | Status and stats |
 
-## Using a Plugin
+**Reference:** `Service` interface in `src/services/types.ts`
+
+## Built-in Services
+
+| Service | Description | Reference |
+|---------|-------------|-----------|
+| `NewsService` | RSS/API news aggregation | `src/services/news.ts` |
+| `MarketService` | Crypto price data | `src/services/market.ts` |
 
 ```typescript
-import { Agent } from "./src";
-import { createTwitterPlugin } from "./plugins/twitter";
+import { createNewsService, createMarketService } from './src/services';
 
-const agent = new Agent({
-  backend,
-  plugins: [
-    createTwitterPlugin({
-      apiKey: process.env.TWITTER_API_KEY!,
-      cooldownMinutes: 60
-    })
-  ]
-});
+const news = createNewsService();
+const market = createMarketService();
 ```
 
-## Building a Plugin
+## Creating a Plugin
 
 ```typescript
-export const myPlugin: Plugin = {
+import { definePlugin } from './src/plugins';
+
+export const myPlugin = definePlugin({
   name: "my-plugin",
   version: "1.0.0",
   onTick(context) {
     console.log(`Mood: ${context.state.mood}`);
   }
-};
+});
 ```
 
-**Reference:** See `plugins/` directory for implementation patterns.
+**Reference:** `definePlugin()` in `src/plugins/loader.ts`
 
-## Feed Examples
+## Plugin Utilities
 
-The clark agent includes these feed implementations:
+| Function | Description |
+|----------|-------------|
+| `definePlugin(def)` | Create and validate plugin |
+| `validatePlugin(obj)` | Check plugin structure |
+| `loadPlugin(path)` | Dynamic import |
+| `sortPluginsByDependencies(plugins)` | Resolve load order |
 
-| Feed | Source | Reference |
-|------|--------|-----------|
-| 4chan | SFW boards (g, sci, biz, etc.) | `backend/convex/tick.ts` |
-| News | HN, BBC, RSS feeds | `backend/convex/tick.ts` |
-| Markets | DexScreener, CoinGecko | `backend/convex/tick.ts` |
+**Reference:** `src/plugins/loader.ts`
 
-Key patterns: routine-based source rotation, activity scoring, cooldown refresh, knowledge storage.
+## Service Types
 
-**Reference:** See [Example Plugins](/plugins/official) for implementation details.
+| Type | Description |
+|------|-------------|
+| `news` | News feeds |
+| `market` | Price data |
+| `social` | Social mentions |
+| `calendar` | Scheduling |
+| `wallet` | Blockchain data |
+| `storage` | File storage |
+| `custom` | User-defined |
 
-## Best Practices
-
-- **One responsibility** — Keep plugins focused on a single capability
-- **Handle errors** — Catch exceptions to avoid crashing the agent
-- **Respect rate limits** — Implement cooldowns for external APIs
-- **Test in isolation** — Use `MemoryBackend` for unit testing
+**Reference:** `ServiceType` enum in `src/services/types.ts`
 
 ## Next Steps
 
 <CardGroup cols={2}>
-  <Card title="Example Plugins" href="/plugins/official">
-    Reference implementations with full patterns.
+  <Card title="Built-in Services" href="/plugins/official">
+    NewsService and MarketService details.
   </Card>
-  <Card title="Build Custom" href="/guides/custom-plugins">
-    Step-by-step plugin development guide.
+  <Card title="Custom Plugins" href="/guides/custom-plugins">
+    Build your own plugins.
   </Card>
 </CardGroup>
